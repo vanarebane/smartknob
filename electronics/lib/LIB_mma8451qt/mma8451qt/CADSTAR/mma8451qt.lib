@@ -1,0 +1,15 @@
+.mma8451qt :1 ;Freescale MMA8451QT 3-Axis Accelerometer IC, 1.95 ??? 3.6 V 16-pin QFN
+PQFN50P300X300X100-16N
+*STM AC
+*NGS
+*PLB 1="VDDIO" 2="BYP" 3="DNC" 4="SCL" 5="GND_1" 6="SDA" 7="SA0" 8="NC_1" 9="INT2" 10="GND_2" 11="INT1" 12="GND_3" 13="NC_2" 14="VDD" 15="NC_3" 16="NC_4"
+*MXP 16
+*DFN mma8451qt
+~!Mouser Part Number (841-MMA8451QT)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/NXP-Semiconductors/MMA8451QT?qs=nf24X8JpkflIa2CupKIQ%252BA%3D%3D)
+~!Manufacturer_Name (NXP)
+~!Manufacturer_Part_Number (mma8451qt)
+~!Link Datasheet (http://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf)
+~!Height (1mm)
+mma8451qt
+1.1!P 2.1!U 3.1!U 4.1!U 5.1!G 6.1!U 7.1!U 8.1!U 9.1!I 10.1!G 11.1!I 12.1!G 13.1!U 14.1!P 15.1!U 16.1!U 

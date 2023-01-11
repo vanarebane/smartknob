@@ -1,0 +1,11 @@
+FILE_TYPE = MULTI_PHYS_TABLE;
+
+PART 'VCNL4010_GS08'
+CLASS = IC
+{========================================================================================}
+:"MANUFACTURER_NAME", "MANUFACTURER_PART_NUMBER"= "PART_NUMBER", "JEDEC_TYPE", "PACK_TYPE", "MOUSER_PART_NUMBER", "MOUSER_PRICE/STOCK", "DESCRIPTION", "DATASHEET", "HEIGHT";
+{========================================================================================}
+ "Vishay", "VCNL4010-GS08" (!) = "", "VCNL4010GS08", "Other", "78-VCNL4010-GS08", "https://www.mouser.co.uk/ProductDetail/Vishay-Semiconductors/VCNL4010-GS08?qs=s4XK1XdnRik7x1pyEKUO2w%3D%3D", "Proximity & Ambient Light Sensor I2C SMD Vishay VCNL4010-GS08 SMT Reflective Sensor, Microcontroller Output", "https://componentsearchengine.com/Datasheets/2/VCNL4010-GS08.pdf", "0.75 mm"
+END_PART
+
+END.

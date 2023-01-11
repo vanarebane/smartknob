@@ -1,0 +1,13 @@
+(unit MM)
+
+(package "VCNL4010-GS08"
+    (type UNDEF)
+    (uver 2)
+    (cuser "SamacSys")
+    (uuser "SamacSys")
+    (utime 2020-04-30-10:17:26)
+    (mountForm default
+        (footprintRef "VCNL4010GS08")
+        (spec "System")
+    )
+)

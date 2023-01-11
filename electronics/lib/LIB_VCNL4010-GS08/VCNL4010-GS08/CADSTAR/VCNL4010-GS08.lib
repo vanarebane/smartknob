@@ -1,0 +1,16 @@
+.VCNL4010-GS08 :1 ;Proximity & Ambient Light Sensor I2C SMD Vishay VCNL4010-GS08 SMT Reflective Sensor, Microcontroller Output
+VCNL4010GS08
+*STM IC
+*NGS
+*PLB 1="IR ANODE" 2="IR CATHODE" 3="IR CATHODE " 4="SDA" 5="SCL" 6="INT" 7="VDD" 8="NC_1" 9="NC_2" 10="NC_3" 11="NC_4" 12="GND_1" 13="GND_2"
+*MXP 13
+*DFN VCNL4010-GS08
+~!Mouser Part Number (78-VCNL4010-GS08)
+~!Link Mouser Price/Stock (https://www.mouser.co.uk/ProductDetail/Vishay-Semiconductors/VCNL4010-GS08?qs=s4XK1XdnRik7x1pyEKUO2w%3D%3D)
+~!Manufacturer_Name (Vishay)
+~!Manufacturer_Part_Number (VCNL4010-GS08)
+~!Link Datasheet (https://componentsearchengine.com/Datasheets/2/VCNL4010-GS08.pdf)
+~!Height (0.75mm)
+~!3D_Model (VCNL4010-GS08)
+VCNL4010-GS08
+1.1!U 2.1!U 3.1!U 4.1!U 5.1!U 6.1!U 7.1!U 8.1!U 9.1!U 10.1!U 11.1!U 12.1!U 13.1!U 

@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP mma8451qt
+D Freescale MMA8451QT 3-Axis Accelerometer IC, 1.95 ??? 3.6 V 16-pin QFN
+K
+F http://www.nxp.com/docs/en/data-sheet/MMA8451Q.pdf
+$ENDCMP
+#
+#End Doc Library

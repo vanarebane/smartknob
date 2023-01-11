@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP VCNL4010-GS08
+D Proximity & Ambient Light Sensor I2C SMD Vishay VCNL4010-GS08 SMT Reflective Sensor, Microcontroller Output
+K
+F https://componentsearchengine.com/Datasheets/2/VCNL4010-GS08.pdf
+$ENDCMP
+#
+#End Doc Library

@@ -13,9 +13,13 @@
 // #### 
 // Hardware-specific motor calibration constants.
 // Run calibration once at startup, then update these constants with the calibration results.
-static const float ZERO_ELECTRICAL_OFFSET = 2.77;
+static const float ZERO_ELECTRICAL_OFFSET = 0.65;
 static const Direction FOC_DIRECTION = Direction::CW;
 static const int MOTOR_POLE_PAIRS = 7;
+
+// static const float ZERO_ELECTRICAL_OFFSET = 3.42; // Sweet spot 0.65
+// static const Direction FOC_DIRECTION = Direction::CCW;
+// static const int MOTOR_POLE_PAIRS = 7;
 // ####
 
 
@@ -277,7 +281,7 @@ void MotorTask::calibrate() {
     log("\n\n\nStarting calibration, please DO NOT TOUCH MOTOR until complete!");
 
     motor.controller = MotionControlType::angle_openloop;
-    motor.pole_pairs = 1;
+    //motor.pole_pairs = 1; // The calibration software never measures the poles perfectly if the settings are wrong
     motor.initFOC(0, Direction::CW);
 
     float a = 0;
@@ -423,7 +427,7 @@ void MotorTask::calibrate() {
 
     // #### Apply settings
     // TODO: save to non-volatile storage
-    motor.pole_pairs = measured_pole_pairs;
+    //motor.pole_pairs = measured_pole_pairs; // The calibration software never measures the poles perfectly
     motor.zero_electric_angle = avg_offset_angle + _3PI_2;
     motor.voltage_limit = 5;
     motor.controller = MotionControlType::torque;

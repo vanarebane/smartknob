@@ -6,4 +6,6 @@
   (lib (name "strain")(type "Legacy")(uri "${KIPRJMOD}/../lib/strain.lib")(options "")(descr ""))
   (lib (name "Trinamic")(type "Legacy")(uri "${KIPRJMOD}/../lib/Trinamic.lib")(options "")(descr ""))
   (lib (name "VEML7700")(type "Legacy")(uri "${KIPRJMOD}/../lib/VEML7700.lib")(options "")(descr ""))
+  (lib (name "SMT-0927-S-12-R")(type "KiCad")(uri "${KIPRJMOD}/lib/view_custom.pretty/SMT-0927-S-12-R.kicad_sym")(options "")(descr ""))
+  (lib (name "LM386MX-1_NOPB")(type "KiCad")(uri "${KIPRJMOD}/lib/view_custom.pretty/LM386MX-1_NOPB.kicad_sym")(options "")(descr ""))
 )

@@ -1,0 +1,142 @@
+body{
+    background-color: rgb(45, 45, 45);
+    font-size: 24px;
+    border: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#request, #debug, #wifistate{
+    font-size: 24px;
+    transition: background-color 0.4s;
+    background-color: #ccc;
+    border-radius: 10px;
+    box-shadow: 3px 3px 5px #00000070;
+    transition: background-color 0.4s;
+    margin-bottom: 7px;
+    padding: 5px 16px;
+}
+.action_btns button{
+    font-size: 38px;
+    padding: 13px;
+    margin: 16px 10% 0;
+    width: 80%;
+    border-radius: 11px;
+    border: 0;
+    box-shadow: 3px 3px 5px #00000070;
+    background-color: #ccc;
+    transition: background-color 0.4s;
+}
+.action_btns button:hover{
+    box-shadow: 3px 3px 5px #855200c5;
+}
+.action_btns button.processing, .action_btns button:active, #request.success, #debug.success, #power.pwron, .statebtns.active, #wifistate.green{
+    background-color: rgb(88, 196, 0);
+}
+.action_btns button.open, #request.processing, .statebtns.processing, #wifistate.processing, #wifistate.yellow{
+    background-color: rgb(225, 165, 0);
+}
+.action_btns button.error, #request.error, #wifistate.error, #wifistate.red{
+    background-color: rgb(255, 82, 82);
+}
+
+.action_btns.disabled button, .action_btns button.pwroff, #wifistate.gray{
+    background-color: rgb(81, 80, 80);
+    color: rgb(45, 45, 45);
+    pointer-events: none;
+}
+
+/* DEBUG STUFF */
+
+#log{
+    border: 1px solid #fff;
+    margin: 20px;
+    position: absolute;
+    min-height: 80%;
+    overflow-y: scroll;
+    color: #fff;
+    padding: 10px;
+    font-size: 20px;
+    max-height: calc(100% - 100px);
+    font-family: sans-serif;
+    width: 0;
+    opacity: 0;
+    transition: width 0.5s, opacity 0.5s;
+}
+#log.debug{
+    width: calc(100% - 200px);
+    opacity: 1;
+}
+.action_btns button{
+    transition: margin 0.5s, width 0.5s,  font-size 0.5s;
+}
+.action_btns button.debug{
+    margin: 16px 10% 0 calc(100% - 120px);
+    width: 100px;
+    font-size: 14px;
+    position: relative;
+}
+.profilegroup{
+    display: flex;
+    width: 80%;
+    margin: 0 10% 0;
+}
+.profilegroup .statebtns{
+    margin: 16px 0;
+    font-size: 0.7em;
+}
+.profilegroup .statebtns:nth-child(2){
+    border-radius: 0;
+}
+.profilegroup .statebtns:last-child{
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 2px #313131 solid;
+}
+.profilegroup .statebtns:first-child{
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 2px #313131 solid;
+}
+
+
+
+.wificonfig_dialog{
+    color: #fff;
+    width: calc(80% - 140px);
+    background-color: #383838;
+    padding: 0px 50px;
+    margin: 4px calc(10% + 10px);
+    border-bottom-left-radius: 23px;
+    border-bottom-right-radius: 23px;
+    height: 0%;
+    transition: height 0.5s padding 0.5s;
+    display: block;
+    position: absolute;
+    overflow: hidden;
+}
+.wificonfig_dialog.open{
+    height: auto;
+    padding: 35px 50px;
+}
+.wificonfig_dialog button{
+    width: 100%;
+    margin: 18px 0 0 0;
+    /* display: inline-block; */
+    font-size: 0.5em;
+}
+.wificonfig_dialog input{
+    font-size: 20px;
+    width: 100%;
+    margin: 0px 0px 10px 0;
+    display: inline-block;
+    padding: 0;
+}
+
+#wifi_message{
+    color: #000;
+    width: 100%;
+    padding: 3px 6px;
+    border:1px solid #999;
+    background: #fff;
+    display: block;
+}

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartKnow web BT interface</title>
+    <script src="jquery.js"></script>
+    <script src="helpers.js"></script>
+    
+    <link href="style.css" rel="stylesheet" >
+</head>
+<body>
+    
+    <button id="request">Connect BT Device</button>
+    <br>
+
+    <div id="log"></div>
+
+
+    <div class="action_btns disabled">
+        <!-- <button id="power">Power</button><br> -->
+        <button data-door="1" class="pwroff">Door 1</button><br>
+        <button data-door="2" class="pwroff">Door 2</button><br>
+        <button data-door="3" class="pwroff">Door 3</button><br>
+        <button data-door="4" class="pwroff">Door 4</button><br>
+        <button data-door="5" class="pwroff">Door 5</button><br>
+        <button data-door="6" class="pwroff">Door 6</button><br>
+        <div class="profilegroup">
+            <button id="setactive" class="statebtns" data-cmd="STA">Active</button>
+            <button id="setmobile" class="statebtns" data-cmd="STM">Mobile</button>
+            <button id="setlocked" class="statebtns" data-cmd="STL">Locked</button>
+        </div>
+        <button id="wificonfig" >WiFi Config</button><br>
+        <div class="wificonfig_dialog">
+            <span id="wifi_message">Enter WiFi credentials</span>
+            SSID: <input name="ssid" type="text"><br>
+            PASS: <input name="wifipass" type="text"><br>
+            <button id="wificonfig_send">Save and connect</button>
+        </div>
+        <!-- <button id="alarmtest" data-cmd="ARM">Alarm test</button><br> -->
+        <!-- <button id="setwifi" data-cmd="SWN">Connect Wifi</button> --> 
+    </div>
+
+    <script>
+
+        $ = jQuery
+        
+        var buffer = new ArrayBuffer(4);
+        var data = new Int32Array(buffer);
+        
+        message_disconnected = "Disconnected"
+        message_connecting = "Connecting"
+        message_connected = "Connected"
+        message_tryagain = "Try again"
+        message_error = "Error"
+    
+        // Function structure
+
+        // Sensor Updates
+        //  *Ambient
+        //  *Gyro
+
+        // Events
+        //  *Button
+        //  *Push
+        //  *Encoder
+
+        // Config
+        //  *Lights
+        //  *Motor/Haptic
+
+        // Trigger
+        //  *Haptic
+        
+        /////////////////////////////////////////////////
+        // https://gist.github.com/sam016/4abe921b5a9ee27f67b3686910293026#file-allgattcharacteristics-java
+    
+        var serviceUuid = 0x340f
+        var characteristicUuid = "000042ff-0000-1000-8000-00805f9b34fb" //0x42ff
+    
+        var serviceCharacteristic;
+    
+        navigator.bluetooth.addEventListener("availabilitychanged", onavailabilitychanged)
+    
+        async function onStartButtonClick() {
+    
+            try {
+                isDisconnected(message_connecting, "processing")
+                console.log('Requesting Bluetooth Device...');
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{"namePrefix": "SmartKnob_"}], // <- Prefer filters to save energy & show relevant devices
+                    optionalServices: [serviceUuid] // <- Required because "secuuurity"
+                });
+    
+                console.log('Connecting to GATT Server...');
+                const server = await device.gatt.connect();
+    
+                console.log('Getting Service...');
+                const service = await server.getPrimaryService(serviceUuid);
+    
+                console.log('Getting Characteristic...');
+                let serviceCharacteristics = await service.getCharacteristics()
+                console.log(serviceCharacteristics)
+                serviceCharacteristic = await service.getCharacteristic(serviceCharacteristics[0].uuid);
+    
+                await serviceCharacteristic.startNotifications();
+                console.log('> Notifications started');
+                serviceCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+    
+                // console.log('Getting Service 2...');
+                // const service2 = await server.getPrimaryService(serviceUuid2);
+    
+                // console.log('Getting Characteristic 2...');
+                // powerCharacteristic = await service2.getCharacteristic(powerCharacteristicUuid);
+    
+                // await powerCharacteristic.startNotifications();
+                // console.log('> Notifications started');
+                // powerCharacteristic.addEventListener('characteristicvaluechanged', handlePwrNotifications);
+    
+                isConnected()
+    
+                // document.querySelector('#writeButton').disabled = false;
+                // console.log('Reading Alert Level...');
+                // const value = await serviceCharacteristic.readValue();
+    
+                // console.log('> Alert Level: ' + getAlertLevel(value));
+                
+            } catch(error) {
+                // document.querySelector('#writeButton').disabled = true;
+                // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+                console.log('! BT Connection error' + error);
+                isDisconnected(message_tryagain, "error")
+            }
+        }
+    
+        function onStopButtonClick(){
+            if(serviceCharacteristic){
+                serviceCharacteristic.stopNotifications()
+                .then(_ => {
+                    console.log('> Notifications stopped');
+                    serviceCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+                    })
+                .catch(error => {
+                    if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
+                        isDisconnected(message_tryagain)
+                    }
+                    //NetworkError: GATT operation already in progress.
+                    //NotSupportedError: GATT operation failed for unknown reason.
+                    //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
+                    //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+                    else{
+                        console.log('! BT error: ' + error);
+                        isDisconnected(message_error, "error")
+                    }
+                }); 
+            }
+        }
+    
+        function onavailabilitychanged(event){
+            console.log("Availabiliy changed: "+event.value)
+        }
+    
+    
+        function handleNotifications(event) {
+            
+            let value = event.target.value;
+    
+            let a = [];
+            // Convert raw data bytes to hex values just for the sake of showing something.
+            // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+            // TextDecoder to process raw data bytes.
+            for (let i = 0; i < value.byteLength; i++) {
+                a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+            }
+            console.log('>> ' + a.join(' '));
+            //console.log('RAW ', event.target.value);
+
+            //let data = bufferToString(value)
+            let data = new Uint8Array(value)
+            console.log(data[0]);
+            //processNotificationState(data)
+            
+        }
+    
+    
+        /////////////////////////////////////////////////
+        /// PROCESSOR
+    
+        var processNotificationState = function(response){
+            var [command, values] = response.split("+")
+            switch(command){
+                case "DS":
+                    for(x in values){
+                        v = parseInt(values[x])
+                        style = (v == 0) ? "closed" : (v <= 3) ? "processing" : (v == 4) ? "open" : "error"
+                        $('[data-door="'+(parseInt(x)+1)+'"]').removeClass("open error processing closed").addClass(style)
+                    }
+                    break;
+                
+                case "PWR":
+                    if(values == "ON") setPwrState(true)
+                    else if(values == "OFF") setPwrState(false)
+                    break;
+                
+                case "ST":
+                    // console.log(values, $('[data-cmd="'+values+'"]'))
+                    $('#setactive, #setmobile, #setlocked').removeClass("active processing")
+                    $('[data-cmd="'+values+'"]').addClass("active")
+                    break;
+                
+                case "WIFI":
+                    [values, ssid] = values.split('|')
+                    switch(values){
+                        case 'STAT_IDLE':
+                            setWifiState("Idle", 'gray')
+                            break;
+                        case 'STAT_CONNECTING':
+                            setWifiState("Connecting", 'yellow')
+                            break;
+                        case 'STAT_WRONG_PASSWORD':
+                            setWifiState("Wrong password", 'red')
+                            break;
+                        case 'STAT_NO_AP_FOUND':
+                            setWifiState("No AP Found", 'red')
+                            break;
+                        case 'STAT_CONNECT_FAIL':
+                            setWifiState("Connection failed, unknow reason", 'red')
+                            break;
+                        case 'STAT_GOT_IP':
+                            setWifiState("Connected to "+ssid, 'green')
+                            break;
+                    }
+                    break;
+            }
+        }
+    
+    
+        $('#request').on('click', async event => {
+            try {
+    
+                onStartButtonClick()
+    
+                // btn_read(1)
+    
+                // bt.startDoorNotifications(doorNotification)
+    
+    
+    
+                // console.log("Request")
+                // await bt.request();
+                // console.log("Connect")
+    
+                // if(bt.connected) 
+                // await bt.connect();
+    
+                // console.log("Connected")
+    
+                // btn_read(1)
+    
+                // bt.startDoorNotifications(doorNotification)
+    
+                // await bt.readDoor();
+    
+                // data[0] = getRandomInt(1023);
+                // await bt.writeDoor(data);
+    
+                //console.log("Done")
+    
+                /* Do something with bt... */
+            } catch(error) {
+                console.log(error);
+            }
+        });
+    
+        var btn_read = async function(number){
+            console.log("Readdoor "+number)
+            // await toolBoxBT.request();
+            if(!bt.connected)
+                await bt.connect();
+    
+            await bt.readDoor();
+            console.log("   Done")
+        }
+    
+        $('#debug').on('click', async event => {
+            $('#log, .action_btns button').toggleClass("debug")
+            $('#debug').toggleClass("success")
+        })
+    
+        $('#power').on('click', async event => {
+            
+            elem = $(event.target)
+            setto = elem.hasClass('pwron') ? "OFF" : "ON"
+            elem.addClass('processing')
+    
+            let value = stringToBuffer("PWR|"+setto)
+            try{
+                console.log('Setting power to '+setto+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                elem.removeClass('processing')
+                console.log('> Power set to '+setto);
+                // $('#power').toggleClass("pwron")
+                // let value = stringToBuffer("OD|"+number)
+                // await serviceCharacteristic.writeValue(value);
+            }
+            catch(error){
+                console.log('> PWR BT error: '+error);
+            }
+        });
+    
+        $('#alarmtest').on('click', async event => {
+            cmd = event.target.dataset.cmd
+            elem = $(event.target)
+            elem.addClass('processing')
+    
+            let value = stringToBuffer("CMD|"+cmd)
+            try{
+                console.log('Sending command: '+cmd+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                elem.removeClass('processing')
+                console.log('> Command sent: '+cmd);
+            }
+            catch(error){
+                console.log('> Command BT error: '+error);
+                isDisconnected(message_tryagain, "error")
+            }
+        })
+        
+    
+        $('#wificonfig').on('click', async event => {
+            // OPEN CONFIG WINDOW
+            // $('#wifi_message').html("Wifi is connected!")
+            $('.wificonfig_dialog').toggleClass("open")
+        })
+    
+        // $('#wificonfig_close').on('click', async event => {
+        //     // OPEN CONFIG WINDOW
+        //     // $('#wifi_message').html("Wifi is connected!")
+        //     $('.wificonfig_dialog').removeClass("open")
+        // })
+    
+    
+        $('#wificonfig_send').on('click', async event => {
+            let msg = $('#wifi_message')
+    
+            cmd = "SWN|"+$('[name="ssid"]').val()+"|"+$('[name="wifipass"]').val()
+            elem = $(event.target)
+            elem.addClass('processing')
+    
+            msg.html("Sending WiFi credentials to Toolbox")
+    
+            let value = stringToBuffer("CMD|"+cmd)
+            try{
+                console.log('Sending command: '+cmd+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                msg.html("Sending done, trying to connect")
+                elem.removeClass('processing')
+                console.log('> Command sent: '+cmd);
+            }
+            catch(error){
+                msg.html("Sending error: "+error)
+                console.log('> Command BT error: '+error);
+                isDisconnected(message_tryagain, "error")
+            }
+        })
+    
+    
+        $('#setactive, #setmobile, #setlocked').on('click', async event => {
+            cmd = event.target.dataset.cmd
+            elem = $(event.target)
+            elem.addClass('processing')
+    
+            let value = stringToBuffer("CMD|"+cmd)
+            try{
+                console.log('Sending command: '+cmd+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                // elem.removeClass('processing')
+                console.log('> Command sent: '+cmd);
+            }
+            catch(error){
+                console.log('> Command BT error: '+error);
+                isDisconnected(message_tryagain, "error")
+            }
+        })
+    
+        
+        $('#setwifi').on('click', async event => {
+            cmd = event.target.dataset.cmd
+            elem = $(event.target)
+            elem.addClass('processing').removeClass('open')
+    
+            let value = stringToBuffer("CMD|"+cmd)
+            try{
+                console.log('Sending command: '+cmd+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                elem.removeClass('processing').addClass('open')
+                console.log('> Command sent: '+cmd);
+            }
+            catch(error){
+                console.log('> Command BT error: '+error);
+                isDisconnected(message_tryagain, "error")
+            }
+        })
+        
+        $('[data-door]').on('click', async event => {
+            
+            elem = event.target
+            number = elem.dataset.door
+    
+            if(!serviceCharacteristic) return;
+    
+            let value = stringToBuffer("OD|"+number)
+            try{
+                console.log('Opening door '+number+'...');
+                await serviceCharacteristic.writeValue(value);
+    
+                console.log('> Opened door '+number);
+            }
+            catch(error){
+                console.log('> Door BT error: '+error);
+            }
+    
+            // try {
+            //     elem = event.target
+            //     number = elem.dataset.door
+            //     console.log("Opendoor "+number)
+            //     doorBtn(elem, "processing")
+            //     // await toolBoxBT.request();
+            //     if(!bt.connected)
+            //         await bt.connect();
+    
+            //     await bt.writeDoor(stringToBuffer("OD|"+number));
+            //     doorBtn(elem, "open")
+            //     console.log("   Done")
+    
+            // } catch(error) {
+            //     processError(error)
+            //     console.log(error);
+            // }
+        });
+    
+        
+        /////////////////////////////////////////////////
+        /// GUI MAGIX 4 MEATBAGS
+        
+        var isDisconnected = function(message=message_disconnected, style=""){
+            connectBtn(message, style)
+            $('[data-door]').removeClass("open error processing")
+            $('.action_btns').addClass('disabled')
+            $('.action_btns button').removeClass("open error processing closed")
+            $('.action_btns [data-door]').addClass('pwroff')
+        }
+    
+        var isConnected = function(){
+            connectBtn(message_connected, "success")
+            $('.action_btns').removeClass('disabled')
+            $('.action_btns [data-door]').removeClass('pwroff')
+        }
+    
+        var connectBtn = function(message, style=""){
+            var elem = $("#request")
+            elem.removeClass("error success processing")
+            if(style !== ""){
+                elem.addClass(style);
+            }
+            elem.html(message)
+        }
+    
+        var setWifiState = function(message, css){
+            console.log("Set wifi state "+message)
+            $('#wifi_message').html(message)
+            $('#wifistate').html("Wifi ["+message+"]").removeClass("gray, yellow, red, green").addClass(css)
+        }
+    
+        var setPwrState = function(state){
+            console.log("Set pwr state "+state)
+            if(state){
+                $('.action_btns').removeClass("disabled")
+            }
+            else{
+                $('.action_btns').addClass("disabled")
+            }
+        }
+    
+        var doorBtn = function(elem, style=""){
+            elem = $(elem)
+            elem.removeClass("open error processing closed")
+            if(style !== ""){
+                elem.addClass(style);
+            }
+        }
+        
+        var doorNotification = function(event){
+            console.log("notification", event)
+            let data = bufferToString(event.target.value)
+            processNotificationState(data)
+        }
+    
+        var processError = function(error){
+            switch(error){
+                case "Device is not connected.":
+                    connectBtn("Not connected. Click here", "error")
+                    alert(error)
+                    break;
+                default:
+                    console.log(error)
+                    break;
+            }
+        }
+    
+        setInterval(()=>{
+            let arr = console.history
+            let content = ""
+            for(a in arr){
+                for(x in arr[a].arguments){
+                    if(typeof(arr[a].arguments[x]) == "object"){
+                        for(y in arr[a].arguments[x]){
+                            content += " __"+y+": "+arr[a].arguments[x][y]+"<br>"
+                        }
+                    }
+                    else{
+                        content += arr[a].arguments[x]+"<br>"
+                    }
+                }
+            }
+            $('#log').html(content)
+        },1000)
+    
+    
+    </script>
+    
+
+
+</body>
+</html>

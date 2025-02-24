@@ -119,10 +119,11 @@ static PB_SmartKnobConfig configs[] = {
     },
 };
 
-InterfaceTask::InterfaceTask(const uint8_t task_core, MotorTask& motor_task, DisplayTask* display_task) : 
+InterfaceTask::InterfaceTask(const uint8_t task_core, MotorTask& motor_task, BLETask& ble_task, DisplayTask* display_task) : 
         Task("Interface", 3000, 1, task_core),
         stream_(),
         motor_task_(motor_task),
+        ble_task_(ble_task),
         display_task_(display_task),
         plaintext_protocol_(stream_, motor_task_),
         proto_protocol_(stream_, motor_task_) {

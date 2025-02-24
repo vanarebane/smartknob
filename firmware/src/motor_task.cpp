@@ -13,9 +13,14 @@
 // #### 
 // Hardware-specific motor calibration constants.
 // Run calibration once at startup, then update these constants with the calibration results.
-static const float ZERO_ELECTRICAL_OFFSET = 0.65;
+static const float ZERO_ELECTRICAL_OFFSET = 4.7;
 static const Direction FOC_DIRECTION = Direction::CW;
 static const int MOTOR_POLE_PAIRS = 7;
+
+
+// static const float ZERO_ELECTRICAL_OFFSET = 0.65;
+// static const Direction FOC_DIRECTION = Direction::CW;
+// static const int MOTOR_POLE_PAIRS = 7;
 
 // static const float ZERO_ELECTRICAL_OFFSET = 3.42; // Sweet spot 0.65
 // static const Direction FOC_DIRECTION = Direction::CCW;
@@ -78,7 +83,7 @@ void MotorTask::run() {
     motor.init();
 
     encoder.update();
-    delay(10);
+    delayMicroseconds(1000);
 
     motor.pole_pairs = MOTOR_POLE_PAIRS;
     motor.initFOC(ZERO_ELECTRICAL_OFFSET, FOC_DIRECTION);
@@ -147,12 +152,12 @@ void MotorTask::run() {
                     motor.move(strength);
                     for (uint8_t i = 0; i < 3; i++) {
                         motor.loopFOC();
-                        delay(1);
+                        delayMicroseconds(1000);
                     }
                     motor.move(-strength);
                     for (uint8_t i = 0; i < 3; i++) {
                         motor.loopFOC();
-                        delay(1);
+                        delayMicroseconds(1000);
                     }
                     motor.move(0);
                     motor.loopFOC();
@@ -224,7 +229,7 @@ void MotorTask::run() {
 
         motor.monitor();
 
-        delay(1);
+        delayMicroseconds(1000);
     }
 }
 
@@ -290,19 +295,19 @@ void MotorTask::calibrate() {
     for (uint8_t i = 0; i < 200; i++) {
         encoder.update();
         motor.move(a);
-        delay(1);
+        delayMicroseconds(1000);
     }
     float start_sensor = encoder.getAngle();
 
     for (; a < 3 * _2PI; a += 0.01) {
         encoder.update();
         motor.move(a);
-        delay(1);
+        delayMicroseconds(1000);
     }
 
     for (uint8_t i = 0; i < 200; i++) {
         encoder.update();
-        delay(1);
+        delayMicroseconds(1000);
     }
     float end_sensor = encoder.getAngle();
 
@@ -336,12 +341,12 @@ void MotorTask::calibrate() {
     for (; a < destination; a += 0.03) {
         encoder.update();
         motor.move(a);
-        delay(1);
+        delayMicroseconds(1000);
     }
     log("pause..."); // Let momentum settle...
     for (uint16_t i = 0; i < 1000; i++) {
         encoder.update();
-        delay(1);
+        delayMicroseconds(1000);
     }
     log("Measuring...");
 
@@ -350,12 +355,12 @@ void MotorTask::calibrate() {
     for (; a < destination; a += 0.03) {
         encoder.update();
         motor.move(a);
-        delay(1);
+        delayMicroseconds(1000);
     }
     for (uint16_t i = 0; i < 1000; i++) {
         encoder.update();
         motor.move(a);
-        delay(1);
+        delayMicroseconds(1000);
     }
     end_sensor = motor.sensor_direction * encoder.getAngle();
     motor.voltage_limit = 0;
@@ -374,7 +379,7 @@ void MotorTask::calibrate() {
     snprintf(buf_, sizeof(buf_), "Pole pairs set to %d", measured_pole_pairs);
     log(buf_);
 
-    delay(1000);
+    delayMicroseconds(1000000);
 
 
     // #### Determine mechanical offset to electrical zero
@@ -390,7 +395,7 @@ void MotorTask::calibrate() {
         delay(100);
         for (uint8_t i = 0; i < 100; i++) {
             encoder.update();
-            delay(1);
+            delayMicroseconds(1000);
         }
         float real_electrical_angle = _normalizeAngle(a);
         float measured_electrical_angle = _normalizeAngle( (float)(motor.sensor_direction * measured_pole_pairs) * encoder.getMechanicalAngle()  - 0);
@@ -407,7 +412,7 @@ void MotorTask::calibrate() {
         delay(100);
         for (uint8_t i = 0; i < 100; i++) {
             encoder.update();
-            delay(1);
+            delayMicroseconds(1000);
         }
         float real_electrical_angle = _normalizeAngle(a);
         float measured_electrical_angle = _normalizeAngle( (float)(motor.sensor_direction * measured_pole_pairs) * encoder.getMechanicalAngle()  - 0);

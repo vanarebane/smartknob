@@ -3,6 +3,7 @@
 #include "display_task.h"
 #include "interface_task.h"
 #include "motor_task.h"
+#include "network/ble_task.h"
 
 #if SK_DISPLAY
 static DisplayTask display_task(0);
@@ -12,8 +13,9 @@ static DisplayTask* display_task_p = nullptr;
 #endif
 static MotorTask motor_task(1);
 
+static BLETask ble_task(1);
 
-InterfaceTask interface_task(0, motor_task, display_task_p);
+InterfaceTask interface_task(0, motor_task, ble_task, display_task_p);
 
 void setup() {
   #if SK_DISPLAY
@@ -24,9 +26,13 @@ void setup() {
   motor_task.addListener(display_task.getKnobStateQueue());
   #endif
 
+  ble_task.setLogger(&interface_task);
+  ble_task.begin();
+
   motor_task.setLogger(&interface_task);
   motor_task.begin();
   interface_task.begin();
+  
 
   // Free up the Arduino loop task
   vTaskDelete(NULL);

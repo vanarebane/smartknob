@@ -163,21 +163,26 @@
     
         function handleNotifications(event) {
             
-            let value = event.target.value;
+            let buffer = event.target.value;
     
             let a = [];
             // Convert raw data bytes to hex values just for the sake of showing something.
             // In the "real" world, you'd use data.getUint8, data.getUint16 or even
             // TextDecoder to process raw data bytes.
-            for (let i = 0; i < value.byteLength; i++) {
-                a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+            for (let i = 0; i < buffer.byteLength; i++) {
+                a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
             }
             console.log('>> ' + a.join(' '));
             //console.log('RAW ', event.target.value);
 
             //let data = bufferToString(value)
-            let data = new Uint8Array(value)
-            console.log(data[0]);
+            // let data = new DataView(buffer, 0)
+            //let data = new Uint8Array(buffer)
+            let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
+            if(buffer.getUint8(2) > 0){
+                value = (value-196096)
+            }
+            console.log(value);
             //processNotificationState(data)
             
         }

@@ -78,7 +78,7 @@ void MotorTask::run() {
     motor.PID_velocity.I = 0;
     motor.PID_velocity.D = 0.04;
     motor.PID_velocity.output_ramp = 10000;
-    motor.PID_velocity.limit = 10;
+    motor.PID_velocity.limit = 100;
 
     motor.init();
 

@@ -59,7 +59,7 @@ class BLETask : public Task<BLETask> {
         BLECharacteristic* pCharacteristic = NULL;
         // bool BLE_CONNECTED;
         bool oldDeviceConnected = false;
-        uint8_t oldval;
+        int32_t current_position;
 
         QueueHandle_t knob_state_queue_;
 

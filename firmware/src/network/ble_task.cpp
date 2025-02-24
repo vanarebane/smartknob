@@ -87,6 +87,8 @@ void BLETask::run() {
         if (deviceConnected && !oldDeviceConnected) {
             // do stuff here on connecting
             oldDeviceConnected = deviceConnected;
+            delay(500);
+            pCharacteristic->notify(); // DOES NOT WORK
         }
 
         if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
@@ -96,12 +98,12 @@ void BLETask::run() {
         // notify changed value
         if (deviceConnected) {
 
-            if (oldval != state.current_position){
+            if (current_position != state.current_position){
                 logf(state.current_position);
 
-                pCharacteristic->setValue((uint8_t*)&state.current_position, 2);
+                pCharacteristic->setValue((uint8_t*)&state.current_position, 4);
                 pCharacteristic->notify();
-                oldval = state.current_position;
+                current_position = state.current_position;
                 delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
             }
         }

@@ -10,9 +10,8 @@
 #include <Preferences.h>
 
 #include "../logger.h"
-#include "../task.h"
-
 #include "../proto_gen/smartknob.pb.h"
+#include "../task.h"
 
 
 enum class MessageType {
@@ -41,7 +40,9 @@ class BLETask : public Task<BLETask> {
         // void playHaptic(bool press);
         // void runCalibration();
 
+        QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
+
         void setLogger(Logger* logger);
         friend class KnobServerCallbacks;
 
@@ -52,14 +53,18 @@ class BLETask : public Task<BLETask> {
         QueueHandle_t queue_;
         Logger* logger_;
         std::vector<QueueHandle_t> listeners_;
-        char buf_[72];
 
         // BLE Setup
         BLEServer* pServer = NULL;
         BLECharacteristic* pCharacteristic = NULL;
         // bool BLE_CONNECTED;
         bool oldDeviceConnected = false;
-        uint32_t test_value = 0;
+        uint8_t oldval;
+
+        QueueHandle_t knob_state_queue_;
+
+        PB_SmartKnobState state_;
+        SemaphoreHandle_t mutex_;
 
         void publish(const PB_SmartKnobState& state);
         // void calibrate();

@@ -2,13 +2,6 @@
 
 #include "ble_task.h"
 
-BLETask::BLETask(const uint8_t task_core) : Task("BLE", 2500, 1, task_core) {
-    queue_ = xQueueCreate(5, sizeof(Message));
-    assert(queue_ != NULL);
-}
-
-BLETask::~BLETask() {}
-
 bool deviceConnected = false;
 
 class KnobServerCallbacks: public BLEServerCallbacks {
@@ -21,6 +14,22 @@ class KnobServerCallbacks: public BLEServerCallbacks {
         deviceConnected = false;
     }
 };
+
+BLETask::BLETask(const uint8_t task_core) : Task("BLE", 2100, 1, task_core) {
+    queue_ = xQueueCreate(5, sizeof(Message));
+    assert(queue_ != NULL);
+    
+    knob_state_queue_ = xQueueCreate(1, sizeof(PB_SmartKnobState));
+    assert(knob_state_queue_ != NULL);
+
+    mutex_ = xSemaphoreCreateMutex();
+    assert(mutex_ != NULL);
+}
+
+BLETask::~BLETask() {
+    vQueueDelete(knob_state_queue_);
+    vSemaphoreDelete(mutex_);
+}
 
 void BLETask::run() {
      
@@ -63,35 +72,10 @@ void BLETask::run() {
     pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
     BLEDevice::startAdvertising();
 
+    PB_SmartKnobState state;
+
     while (1) {
         
-        // Check queue for pending requests from other tasks
-        Message message;
-        if (xQueueReceive(queue_, &message, 0) == pdTRUE) {
-            switch (message.message_type) {
-                case MessageType::READ:{
-                    break;
-                }
-                case MessageType::WRITE: {
-                    break;
-                }
-                case MessageType::NOTIFY: {
-                    break;
-                }
-                case MessageType::INDICATE: {
-                    break;
-                }
-            }
-        }
-
-        // notify changed value
-        if (deviceConnected) {
-            pCharacteristic->setValue((uint8_t*)&test_value, 4);
-            pCharacteristic->notify();
-            test_value++;
-            delay(1000);
-            //delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
-        }
         // disconnecting
         if (!deviceConnected && oldDeviceConnected) {
             delay(500); // give the bluetooth stack the chance to get things ready
@@ -104,6 +88,42 @@ void BLETask::run() {
             // do stuff here on connecting
             oldDeviceConnected = deviceConnected;
         }
+
+        if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
+            continue;
+        }
+
+        // notify changed value
+        if (deviceConnected) {
+
+            if (oldval != state.current_position){
+                logf(state.current_position);
+
+                pCharacteristic->setValue((uint8_t*)&state.current_position, 2);
+                pCharacteristic->notify();
+                oldval = state.current_position;
+                delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+            }
+        }
+
+        // // Check queue for pending requests from other tasks
+        // Message message;
+        // if (xQueueReceive(queue_, &message, 0) == pdTRUE) {
+        //     switch (message.message_type) {
+        //         case MessageType::READ:{
+        //             break;
+        //         }
+        //         case MessageType::WRITE: {
+        //             break;
+        //         }
+        //         case MessageType::NOTIFY: {
+        //             break;
+        //         }
+        //         case MessageType::INDICATE: {
+        //             break;
+        //         }
+        //     }
+        // }
 
     }
 
@@ -119,6 +139,15 @@ void BLETask::publish(const PB_SmartKnobState& state) {
     }
 }
 
+QueueHandle_t BLETask::getKnobStateQueue() {
+    return knob_state_queue_;
+}
+
+// void BLETask::setBrightness(uint16_t brightness) {
+//   SemaphoreGuard lock(mutex_);
+//   brightness_ = brightness;
+// }
+
 void BLETask::setLogger(Logger* logger) {
     logger_ = logger;
 }
@@ -129,5 +158,8 @@ void BLETask::log(const char* msg) {
     }
 }
 
+#else
+
+class BLETask {};
 
 #endif

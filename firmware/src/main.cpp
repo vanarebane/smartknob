@@ -26,8 +26,11 @@ void setup() {
   motor_task.addListener(display_task.getKnobStateQueue());
   #endif
 
+  #if SK_BLE
   ble_task.setLogger(&interface_task);
   ble_task.begin();
+  motor_task.addListener(ble_task.getKnobStateQueue());
+  #endif
 
   motor_task.setLogger(&interface_task);
   motor_task.begin();

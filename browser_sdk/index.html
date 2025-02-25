@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartKnow web BT interface</title>
     <script src="jquery.js"></script>
-    <script src="helpers.js"></script>
+    <script src="smartknob.js"></script>
     
     <link href="style.css" rel="stylesheet" >
 </head>
@@ -19,23 +19,69 @@
 
     <div class="action_btns disabled">
         <!-- <button id="power">Power</button><br> -->
-        <button data-door="1" class="pwroff">Door 1</button><br>
-        <button data-door="2" class="pwroff">Door 2</button><br>
-        <button data-door="3" class="pwroff">Door 3</button><br>
-        <button data-door="4" class="pwroff">Door 4</button><br>
-        <button data-door="5" class="pwroff">Door 5</button><br>
-        <button data-door="6" class="pwroff">Door 6</button><br>
         <div class="profilegroup">
-            <button id="setactive" class="statebtns" data-cmd="STA">Active</button>
-            <button id="setmobile" class="statebtns" data-cmd="STM">Mobile</button>
-            <button id="setlocked" class="statebtns" data-cmd="STL">Locked</button>
+            <label for="position_cur" class="pwroff">Position:</label>
+            <input style="text-align: right;" name="position_cur" value="0" type="text" disabled>
+            <span style="text-align: center; width: 10px;" >/</span>
+            <input name="position" value="0" type="text" disabled>
         </div>
-        <button id="wificonfig" >WiFi Config</button><br>
-        <div class="wificonfig_dialog">
-            <span id="wifi_message">Enter WiFi credentials</span>
-            SSID: <input name="ssid" type="text"><br>
-            PASS: <input name="wifipass" type="text"><br>
-            <button id="wificonfig_send">Save and connect</button>
+        <div class="profilegroup">
+            <label for="light" class="pwroff">Light:</label>
+            <input style="text-align: right;" name="light" value="0" type="text" disabled>
+            <span>millilux</span>
+        </div>
+        <div class="profilegroup">
+            <label for="strain" class="pwroff">Strain:</label>
+            <input style="width: 100%;" name="strain" value="0" type="text" disabled>
+        </div>
+        <div class="profilegroup">
+            <label for="strain" class="pwroff">Button:</label>
+            <input style="width: 100%;" name="knob_button" value="0" type="text" disabled>
+        </div>
+
+        <div class="profilegroup">
+            <label for="strain" class="pwroff">Profile:</label>
+            <input style="width: 100%;" name="profile_name" value="" type="text" disabled>
+        </div>
+               
+        <div class="profilegroup">
+            <button id="setactive" class="statebtns" data-cmd="STA">Red</button>
+            <button id="setmobile" class="statebtns" data-cmd="STM">Green</button>
+            <button id="setlocked" class="statebtns" data-cmd="STL">Blue</button>
+        </div>
+        <button id="profileconfig" >SmartKnob Config</button><br>
+        <div class="profileconfig_dialog">
+            
+            <div class="profilegroup">
+                <label for="preset_profile">Preset profiles:</label><select name="preset_profile"></select>
+            </div>
+            <div class="profilegroup">
+                <label for="pos_num">Num. positions:</label><input name="pos_num" value="32" type="number">
+            </div>
+            <div class="profilegroup">
+                <label for="pos_start">Start position:</label><input name="pos_start" value="0" type="number">
+            </div>
+            <div class="profilegroup">
+                <label for="pos_rad">Position with radians:</label><input name="pos_rad" value="8.2258" type="number" min="1" max="60">
+            </div>
+            <div class="profilegroup">
+                <label for="strenght_detent">Detent strenght:</label><input name="strenght_detent" value="2" type="number" min="0" max="2">
+            </div>
+            <div class="profilegroup">
+                <label for="strenght_endpoint">Endstop strenght:</label><input name="strenght_endpoint" value="1" type="number" min="0" max="1">
+            </div>
+            <div class="profilegroup">
+                <label for="snap_point">Snap point (1.1 / 0.5):</label><input name="snap_point" value="1.1" type="number" min="0.5" max="1.1">
+            </div>
+            <div class="profilegroup">
+                <label for="new_profile_name">Profile name:</label><input name="new_profile_name" value="Coarse values / Strong detents" type="text">
+            </div>
+            <button id="profileconfig_send">Send</button>
+            
+            <div class="profilegroup">
+                <span id="profile_message">...</span>
+            </div>
+            
         </div>
         <!-- <button id="alarmtest" data-cmd="ARM">Alarm test</button><br> -->
         <!-- <button id="setwifi" data-cmd="SWN">Connect Wifi</button> --> 
@@ -44,149 +90,139 @@
     <script>
 
         $ = jQuery
+
+        let sk = new SmartKnob()
         
         var buffer = new ArrayBuffer(4);
         var data = new Int32Array(buffer);
         
-        message_disconnected = "Disconnected"
-        message_connecting = "Connecting"
-        message_connected = "Connected"
-        message_tryagain = "Try again"
-        message_error = "Error"
+        // message_disconnected = "Disconnected"
+        // message_connecting = "Connecting"
+        // message_connected = "Connected"
+        // message_tryagain = "Try again"
+        // message_error = "Error"
     
-        // Function structure
-
-        // Sensor Updates
-        //  *Ambient
-        //  *Gyro
-
-        // Events
-        //  *Button
-        //  *Push
-        //  *Encoder
-
-        // Config
-        //  *Lights
-        //  *Motor/Haptic
-
-        // Trigger
-        //  *Haptic
         
-        /////////////////////////////////////////////////
-        // https://gist.github.com/sam016/4abe921b5a9ee27f67b3686910293026#file-allgattcharacteristics-java
+        // /////////////////////////////////////////////////
+        // // https://gist.github.com/sam016/4abe921b5a9ee27f67b3686910293026#file-allgattcharacteristics-java
     
-        var serviceUuid = 0x340f
-        var characteristicUuid = "000042ff-0000-1000-8000-00805f9b34fb" //0x42ff
+        // var serviceUuid = 0x340f
+        // var characteristicUuid = "000042ff-0000-1000-8000-00805f9b34fb" //0x42ff
     
-        var serviceCharacteristic;
+        // var serviceCharacteristic;
     
-        navigator.bluetooth.addEventListener("availabilitychanged", onavailabilitychanged)
+        // navigator.bluetooth.addEventListener("availabilitychanged", onavailabilitychanged)
     
         async function onStartButtonClick() {
-    
-            try {
-                isDisconnected(message_connecting, "processing")
-                console.log('Requesting Bluetooth Device...');
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{"namePrefix": "SmartKnob_"}], // <- Prefer filters to save energy & show relevant devices
-                    optionalServices: [serviceUuid] // <- Required because "secuuurity"
-                });
-    
-                console.log('Connecting to GATT Server...');
-                const server = await device.gatt.connect();
-    
-                console.log('Getting Service...');
-                const service = await server.getPrimaryService(serviceUuid);
-    
-                console.log('Getting Characteristic...');
-                let serviceCharacteristics = await service.getCharacteristics()
-                console.log(serviceCharacteristics)
-                serviceCharacteristic = await service.getCharacteristic(serviceCharacteristics[0].uuid);
-    
-                await serviceCharacteristic.startNotifications();
-                console.log('> Notifications started');
-                serviceCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-    
-                // console.log('Getting Service 2...');
-                // const service2 = await server.getPrimaryService(serviceUuid2);
-    
-                // console.log('Getting Characteristic 2...');
-                // powerCharacteristic = await service2.getCharacteristic(powerCharacteristicUuid);
-    
-                // await powerCharacteristic.startNotifications();
-                // console.log('> Notifications started');
-                // powerCharacteristic.addEventListener('characteristicvaluechanged', handlePwrNotifications);
-    
-                isConnected()
-    
-                // document.querySelector('#writeButton').disabled = false;
-                // console.log('Reading Alert Level...');
-                // const value = await serviceCharacteristic.readValue();
-    
-                // console.log('> Alert Level: ' + getAlertLevel(value));
-                
-            } catch(error) {
-                // document.querySelector('#writeButton').disabled = true;
-                // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-                console.log('! BT Connection error' + error);
-                isDisconnected(message_tryagain, "error")
-            }
-        }
-    
-        function onStopButtonClick(){
-            if(serviceCharacteristic){
-                serviceCharacteristic.stopNotifications()
-                .then(_ => {
-                    console.log('> Notifications stopped');
-                    serviceCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
-                    })
-                .catch(error => {
-                    if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
-                        isDisconnected(message_tryagain)
-                    }
-                    //NetworkError: GATT operation already in progress.
-                    //NotSupportedError: GATT operation failed for unknown reason.
-                    //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
-                    //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-                    else{
-                        console.log('! BT error: ' + error);
-                        isDisconnected(message_error, "error")
-                    }
-                }); 
-            }
-        }
-    
-        function onavailabilitychanged(event){
-            console.log("Availabiliy changed: "+event.value)
-        }
-    
-    
-        function handleNotifications(event) {
-            
-            let buffer = event.target.value;
-    
-            let a = [];
-            // Convert raw data bytes to hex values just for the sake of showing something.
-            // In the "real" world, you'd use data.getUint8, data.getUint16 or even
-            // TextDecoder to process raw data bytes.
-            for (let i = 0; i < buffer.byteLength; i++) {
-                a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
-            }
-            console.log('>> ' + a.join(' '));
-            //console.log('RAW ', event.target.value);
 
-            //let data = bufferToString(value)
-            // let data = new DataView(buffer, 0)
-            //let data = new Uint8Array(buffer)
-            let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
-            if(buffer.getUint8(2) > 0){
-                value = (value-196096)
-            }
-            console.log(value);
-            //processNotificationState(data)
-            
+            sk.connect()
+    
+            // try {
+            //     isDisconnected(message_connecting, "processing")
+            //     console.log('Requesting Bluetooth Device...');
+            //     const device = await navigator.bluetooth.requestDevice({
+            //         filters: [{"namePrefix": "SmartKnob_"}], // <- Prefer filters to save energy & show relevant devices
+            //         optionalServices: [serviceUuid] // <- Required because "secuuurity"
+            //     });
+    
+            //     console.log('Connecting to GATT Server...');
+            //     const server = await device.gatt.connect();
+    
+            //     console.log('Getting Service...');
+            //     const service = await server.getPrimaryService(serviceUuid);
+    
+            //     console.log('Getting Characteristic...');
+            //     let serviceCharacteristics = await service.getCharacteristics()
+            //     console.log(serviceCharacteristics)
+            //     serviceCharacteristic = await service.getCharacteristic(serviceCharacteristics[0].uuid);
+    
+            //     await serviceCharacteristic.startNotifications();
+            //     console.log('> Notifications started');
+            //     serviceCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+    
+            //     // console.log('Getting Service 2...');
+            //     // const service2 = await server.getPrimaryService(serviceUuid2);
+    
+            //     // console.log('Getting Characteristic 2...');
+            //     // powerCharacteristic = await service2.getCharacteristic(powerCharacteristicUuid);
+    
+            //     // await powerCharacteristic.startNotifications();
+            //     // console.log('> Notifications started');
+            //     // powerCharacteristic.addEventListener('characteristicvaluechanged', handlePwrNotifications);
+    
+            //     isConnected()
+    
+            //     // document.querySelector('#writeButton').disabled = false;
+            //     // console.log('Reading Alert Level...');
+            //     // const value = await serviceCharacteristic.readValue();
+    
+            //     // console.log('> Alert Level: ' + getAlertLevel(value));
+                
+            // } catch(error) {
+            //     // document.querySelector('#writeButton').disabled = true;
+            //     // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+            //     console.log('! BT Connection error' + error);
+            //     isDisconnected(message_tryagain, "error")
+            // }
         }
     
+        // function onStopButtonClick(){
+        //     if(serviceCharacteristic){
+        //         serviceCharacteristic.stopNotifications()
+        //         .then(_ => {
+        //             console.log('> Notifications stopped');
+        //             serviceCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+        //             })
+        //         .catch(error => {
+        //             if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
+        //                 isDisconnected(message_tryagain)
+        //             }
+        //             //NetworkError: GATT operation already in progress.
+        //             //NotSupportedError: GATT operation failed for unknown reason.
+        //             //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
+        //             //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+        //             else{
+        //                 console.log('! BT error: ' + error);
+        //                 isDisconnected(message_error, "error")
+        //             }
+        //         }); 
+        //     }
+        // }
+
+        // function onavailabilitychanged(event){
+        //     this.log("Availabiliy changed: "+event.value)
+        // }
+    
+    
+        // function handleNotifications(event) {
+            
+        //     let buffer = event.target.value;
+    
+        //     // Display raw hex
+        //     // let a = [];
+        //     // for (let i = 0; i < buffer.byteLength; i++) {
+        //     //     a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
+        //     // }
+        //     // console.log('>> ' + a.join(' '));
+
+        //     //let data = bufferToString(value)
+        //     // let data = new DataView(buffer, 0)
+        //     //let data = new Uint8Array(buffer)
+        //     let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
+        //     if(buffer.getUint8(2) > 0){
+        //         value = (value-196096)
+        //     }
+        //     $('[name="position_cur"]').val(value)
+        //     //console.log(value);
+        //     //processNotificationState(data)
+            
+        // }
+
+    
+        sk.addListener('handleNotifications', (e)=>{ 
+            $('[name="position_cur"]').val(e.detail.value)
+        })
+
     
         /////////////////////////////////////////////////
         /// PROCESSOR
@@ -238,7 +274,107 @@
                     break;
             }
         }
+        let PI = Math.PI;
     
+
+        let preset_profiles = [
+            [
+                0,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Unbounded\nNo detents",
+            ],
+            [
+                11,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Bounded 0-10\nNo detents",
+            ],
+            [
+                73,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Multi-rev\nNo detents",
+            ],
+            [
+                2,
+                0,
+                60 * PI / 180,
+                1,
+                1,
+                0.55, // Note the snap point is slightly past the midpoint (0.5); compare to normal detents which use a snap point *past* the next value (i.e. > 1)
+                "On/off\nStrong detent",
+            ],
+            [
+                1,
+                0,
+                60 * PI / 180,
+                0.01,
+                0.6,
+                1.1,
+                "Return-to-center",
+            ],
+            [
+                256,
+                127,
+                1 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Fine values\nNo detents",
+            ],
+            [
+                256,
+                127,
+                1 * PI / 180,
+                1,
+                1,
+                1.1,
+                "Fine values\nWith detents",
+            ],
+            [
+                32,
+                0,
+                8.225806452,
+                2,
+                1,
+                1.1,
+                "Coarse values\nStrong detents",
+            ],
+            [
+                32,
+                0,
+                8.225806452 * PI / 180,
+                0.2,
+                1,
+                1.1,
+                "Coarse values\nWeak detents",
+            ]
+        ]
+
+        preset_profiles.forEach(function(valuearr, i){
+            $('<option value="'+i+'">'+valuearr[6].replace("\n", " / ")+'</option>').appendTo('[name="preset_profile"]')
+        })
+        $('[name="preset_profile"]').on('change', (e)=>{
+            console.log(preset_profiles[e.target.value])
+            let v = preset_profiles[e.target.value]
+            $('[name="pos_num"]').val(v[0])
+            $('[name="pos_start"]').val(v[1])
+            $('[name="pos_rad"]').val(v[2]/PI*180)
+            $('[name="strenght_detent"]').val(v[3])
+            $('[name="strenght_endpoint"]').val(v[4])
+            $('[name="snap_point"]').val(v[5])
+            $('[name="new_profile_name"]').val(v[6].replace("\n", " / "))
+        })
     
         $('#request').on('click', async event => {
             try {
@@ -266,8 +402,6 @@
     
                 // await bt.readDoor();
     
-                // data[0] = getRandomInt(1023);
-                // await bt.writeDoor(data);
     
                 //console.log("Done")
     
@@ -287,106 +421,34 @@
             console.log("   Done")
         }
     
-        $('#debug').on('click', async event => {
-            $('#log, .action_btns button').toggleClass("debug")
-            $('#debug').toggleClass("success")
-        })
-    
-        $('#power').on('click', async event => {
-            
-            elem = $(event.target)
-            setto = elem.hasClass('pwron') ? "OFF" : "ON"
-            elem.addClass('processing')
-    
-            let value = stringToBuffer("PWR|"+setto)
-            try{
-                console.log('Setting power to '+setto+'...');
-                await serviceCharacteristic.writeValue(value);
-    
-                elem.removeClass('processing')
-                console.log('> Power set to '+setto);
-                // $('#power').toggleClass("pwron")
-                // let value = stringToBuffer("OD|"+number)
-                // await serviceCharacteristic.writeValue(value);
-            }
-            catch(error){
-                console.log('> PWR BT error: '+error);
-            }
-        });
-    
-        $('#alarmtest').on('click', async event => {
-            cmd = event.target.dataset.cmd
-            elem = $(event.target)
-            elem.addClass('processing')
-    
-            let value = stringToBuffer("CMD|"+cmd)
-            try{
-                console.log('Sending command: '+cmd+'...');
-                await serviceCharacteristic.writeValue(value);
-    
-                elem.removeClass('processing')
-                console.log('> Command sent: '+cmd);
-            }
-            catch(error){
-                console.log('> Command BT error: '+error);
-                isDisconnected(message_tryagain, "error")
-            }
-        })
         
     
-        $('#wificonfig').on('click', async event => {
+        $('#profileconfig').on('click', async event => {
             // OPEN CONFIG WINDOW
-            // $('#wifi_message').html("Wifi is connected!")
-            $('.wificonfig_dialog').toggleClass("open")
+            $('.profileconfig_dialog').toggleClass("open")
         })
     
-        // $('#wificonfig_close').on('click', async event => {
-        //     // OPEN CONFIG WINDOW
-        //     // $('#wifi_message').html("Wifi is connected!")
-        //     $('.wificonfig_dialog').removeClass("open")
-        // })
     
-    
-        $('#wificonfig_send').on('click', async event => {
-            let msg = $('#wifi_message')
+        $('#profileconfig_send').on('click', async event => {
+            let msg = $('#profile_message')
     
             cmd = "SWN|"+$('[name="ssid"]').val()+"|"+$('[name="wifipass"]').val()
             elem = $(event.target)
             elem.addClass('processing')
     
-            msg.html("Sending WiFi credentials to Toolbox")
+            msg.html("Sending config to SmartKnob")
     
             let value = stringToBuffer("CMD|"+cmd)
             try{
                 console.log('Sending command: '+cmd+'...');
                 await serviceCharacteristic.writeValue(value);
     
-                msg.html("Sending done, trying to connect")
+                msg.html("Sending done, waiting back")
                 elem.removeClass('processing')
                 console.log('> Command sent: '+cmd);
             }
             catch(error){
                 msg.html("Sending error: "+error)
-                console.log('> Command BT error: '+error);
-                isDisconnected(message_tryagain, "error")
-            }
-        })
-    
-    
-        $('#setactive, #setmobile, #setlocked').on('click', async event => {
-            cmd = event.target.dataset.cmd
-            elem = $(event.target)
-            elem.addClass('processing')
-    
-            let value = stringToBuffer("CMD|"+cmd)
-            try{
-                console.log('Sending command: '+cmd+'...');
-                await serviceCharacteristic.writeValue(value);
-    
-                // elem.removeClass('processing')
-                console.log('> Command sent: '+cmd);
-            }
-            catch(error){
                 console.log('> Command BT error: '+error);
                 isDisconnected(message_tryagain, "error")
             }
@@ -412,60 +474,24 @@
             }
         })
         
-        $('[data-door]').on('click', async event => {
-            
-            elem = event.target
-            number = elem.dataset.door
-    
-            if(!serviceCharacteristic) return;
-    
-            let value = stringToBuffer("OD|"+number)
-            try{
-                console.log('Opening door '+number+'...');
-                await serviceCharacteristic.writeValue(value);
-    
-                console.log('> Opened door '+number);
-            }
-            catch(error){
-                console.log('> Door BT error: '+error);
-            }
-    
-            // try {
-            //     elem = event.target
-            //     number = elem.dataset.door
-            //     console.log("Opendoor "+number)
-            //     doorBtn(elem, "processing")
-            //     // await toolBoxBT.request();
-            //     if(!bt.connected)
-            //         await bt.connect();
-    
-            //     await bt.writeDoor(stringToBuffer("OD|"+number));
-            //     doorBtn(elem, "open")
-            //     console.log("   Done")
-    
-            // } catch(error) {
-            //     processError(error)
-            //     console.log(error);
-            // }
-        });
     
         
         /////////////////////////////////////////////////
         /// GUI MAGIX 4 MEATBAGS
         
-        var isDisconnected = function(message=message_disconnected, style=""){
-            connectBtn(message, style)
+        
+        sk.addListener('isConnected', (e)=>{ 
+            connectBtn(e.detail.message, e.detail.type)
+            $('.action_btns').removeClass('disabled')
+        })
+
+        sk.addListener('isDisconnected', (e)=>{
+            connectBtn(e.detail.message, e.detail.type)
             $('[data-door]').removeClass("open error processing")
             $('.action_btns').addClass('disabled')
             $('.action_btns button').removeClass("open error processing closed")
             $('.action_btns [data-door]').addClass('pwroff')
-        }
-    
-        var isConnected = function(){
-            connectBtn(message_connected, "success")
-            $('.action_btns').removeClass('disabled')
-            $('.action_btns [data-door]').removeClass('pwroff')
-        }
+        })
     
         var connectBtn = function(message, style=""){
             var elem = $("#request")
@@ -475,37 +501,7 @@
             }
             elem.html(message)
         }
-    
-        var setWifiState = function(message, css){
-            console.log("Set wifi state "+message)
-            $('#wifi_message').html(message)
-            $('#wifistate').html("Wifi ["+message+"]").removeClass("gray, yellow, red, green").addClass(css)
-        }
-    
-        var setPwrState = function(state){
-            console.log("Set pwr state "+state)
-            if(state){
-                $('.action_btns').removeClass("disabled")
-            }
-            else{
-                $('.action_btns').addClass("disabled")
-            }
-        }
-    
-        var doorBtn = function(elem, style=""){
-            elem = $(elem)
-            elem.removeClass("open error processing closed")
-            if(style !== ""){
-                elem.addClass(style);
-            }
-        }
         
-        var doorNotification = function(event){
-            console.log("notification", event)
-            let data = bufferToString(event.target.value)
-            processNotificationState(data)
-        }
-    
         var processError = function(error){
             switch(error){
                 case "Device is not connected.":
@@ -537,9 +533,8 @@
         },1000)
     
     
+
+
     </script>
-    
-
-
 </body>
 </html>

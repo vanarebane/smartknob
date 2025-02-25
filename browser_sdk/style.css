@@ -15,7 +15,7 @@ body{
     margin-bottom: 7px;
     padding: 5px 16px;
 }
-.action_btns button{
+.action_btns button, .action_btns label, .action_btns input, .action_btns span, .action_btns select{
     font-size: 38px;
     padding: 13px;
     margin: 16px 10% 0;
@@ -23,8 +23,11 @@ body{
     border-radius: 11px;
     border: 0;
     box-shadow: 3px 3px 5px #00000070;
-    background-color: #ccc;
+    background-color: #abaaaa;
     transition: background-color 0.4s;
+}
+.action_btns label{
+    max-width: 120px;
 }
 .action_btns button:hover{
     box-shadow: 3px 3px 5px #855200c5;
@@ -80,28 +83,27 @@ body{
     width: 80%;
     margin: 0 10% 0;
 }
-.profilegroup .statebtns{
+.profilegroup .statebtns, .profilegroup>label, .profilegroup>span, .profilegroup>input, .profilegroup>select{
     margin: 16px 0;
-    font-size: 0.7em;
+    font-size: 1.1em;
 }
-.profilegroup .statebtns:nth-child(2){
+.profilegroup .statebtns, .profilegroup>label, .profilegroup>span, .profilegroup>input, .profilegroup>select{
     border-radius: 0;
+    border-left: 1px #313131 solid;
 }
-.profilegroup .statebtns:last-child{
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    border-left: 2px #313131 solid;
+.profilegroup > *:last-child{
+    border-top-right-radius: 11px;
+    border-bottom-right-radius: 11px;
 }
-.profilegroup .statebtns:first-child{
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    border-right: 2px #313131 solid;
+.profilegroup > *:first-child{
+    border-top-left-radius: 11px;
+    border-bottom-left-radius: 11px;
+    border-left: none;
 }
 
 
 
-.wificonfig_dialog{
-    color: #fff;
+.profileconfig_dialog{
     width: calc(80% - 140px);
     background-color: #383838;
     padding: 0px 50px;
@@ -114,25 +116,33 @@ body{
     position: absolute;
     overflow: hidden;
 }
-.wificonfig_dialog.open{
+
+.profileconfig_dialog .profilegroup{
+    font-size: 1em;
+    width: 100%;
+    margin: 0 0 5px 0;
+}
+.profileconfig_dialog .profilegroup input, .profileconfig_dialog .profilegroup select{
+    width: 100%;
+    margin: 0;
+    background-color: #fff;
+}
+.profileconfig_dialog .profilegroup label{
+    max-width: 300px;
+    margin: 0;
+}
+.profileconfig_dialog.open{
     height: auto;
     padding: 35px 50px;
 }
-.wificonfig_dialog button{
+.profileconfig_dialog button{
     width: 100%;
     margin: 18px 0 0 0;
     /* display: inline-block; */
-    font-size: 0.5em;
-}
-.wificonfig_dialog input{
-    font-size: 20px;
-    width: 100%;
-    margin: 0px 0px 10px 0;
-    display: inline-block;
-    padding: 0;
+    font-size: 1em;
 }
 
-#wifi_message{
+#profile_message{
     color: #000;
     width: 100%;
     padding: 3px 6px;

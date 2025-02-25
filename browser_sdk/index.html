@@ -31,16 +31,18 @@
             <span>millilux</span>
         </div>
         <div class="profilegroup">
-            <label for="strain" class="pwroff">Strain:</label>
-            <input style="width: 100%;" name="strain" value="0" type="text" disabled>
+            <label for="strain" class="pwroff">Scale:</label>
+            <button style="width: 100%; text-align: center;" class="statebtns" id="strain_push">Push</button>
+            <input style="width: 100%; text-align: right;" name="strain_raw" value="0" type="number" disabled>
+            <span>raw</span>
         </div>
         <div class="profilegroup">
-            <label for="strain" class="pwroff">Button:</label>
+            <label for="knob_button" class="pwroff">Button:</label>
             <input style="width: 100%;" name="knob_button" value="0" type="text" disabled>
         </div>
 
         <div class="profilegroup">
-            <label for="strain" class="pwroff">Profile:</label>
+            <label for="profile_name" class="pwroff">Profile:</label>
             <input style="width: 100%;" name="profile_name" value="" type="text" disabled>
         </div>
                
@@ -83,8 +85,6 @@
             </div>
             
         </div>
-        <!-- <button id="alarmtest" data-cmd="ARM">Alarm test</button><br> -->
-        <!-- <button id="setwifi" data-cmd="SWN">Connect Wifi</button> --> 
     </div>
 
     <script>
@@ -93,140 +93,24 @@
 
         let sk = new SmartKnob()
         
-        var buffer = new ArrayBuffer(4);
-        var data = new Int32Array(buffer);
-        
-        // message_disconnected = "Disconnected"
-        // message_connecting = "Connecting"
-        // message_connected = "Connected"
-        // message_tryagain = "Try again"
-        // message_error = "Error"
-    
-        
-        // /////////////////////////////////////////////////
-        // // https://gist.github.com/sam016/4abe921b5a9ee27f67b3686910293026#file-allgattcharacteristics-java
-    
-        // var serviceUuid = 0x340f
-        // var characteristicUuid = "000042ff-0000-1000-8000-00805f9b34fb" //0x42ff
-    
-        // var serviceCharacteristic;
-    
-        // navigator.bluetooth.addEventListener("availabilitychanged", onavailabilitychanged)
-    
-        async function onStartButtonClick() {
+        $('#request').on('click', async event => {sk.connect()});
 
-            sk.connect()
-    
-            // try {
-            //     isDisconnected(message_connecting, "processing")
-            //     console.log('Requesting Bluetooth Device...');
-            //     const device = await navigator.bluetooth.requestDevice({
-            //         filters: [{"namePrefix": "SmartKnob_"}], // <- Prefer filters to save energy & show relevant devices
-            //         optionalServices: [serviceUuid] // <- Required because "secuuurity"
-            //     });
-    
-            //     console.log('Connecting to GATT Server...');
-            //     const server = await device.gatt.connect();
-    
-            //     console.log('Getting Service...');
-            //     const service = await server.getPrimaryService(serviceUuid);
-    
-            //     console.log('Getting Characteristic...');
-            //     let serviceCharacteristics = await service.getCharacteristics()
-            //     console.log(serviceCharacteristics)
-            //     serviceCharacteristic = await service.getCharacteristic(serviceCharacteristics[0].uuid);
-    
-            //     await serviceCharacteristic.startNotifications();
-            //     console.log('> Notifications started');
-            //     serviceCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-    
-            //     // console.log('Getting Service 2...');
-            //     // const service2 = await server.getPrimaryService(serviceUuid2);
-    
-            //     // console.log('Getting Characteristic 2...');
-            //     // powerCharacteristic = await service2.getCharacteristic(powerCharacteristicUuid);
-    
-            //     // await powerCharacteristic.startNotifications();
-            //     // console.log('> Notifications started');
-            //     // powerCharacteristic.addEventListener('characteristicvaluechanged', handlePwrNotifications);
-    
-            //     isConnected()
-    
-            //     // document.querySelector('#writeButton').disabled = false;
-            //     // console.log('Reading Alert Level...');
-            //     // const value = await serviceCharacteristic.readValue();
-    
-            //     // console.log('> Alert Level: ' + getAlertLevel(value));
-                
-            // } catch(error) {
-            //     // document.querySelector('#writeButton').disabled = true;
-            //     // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-            //     console.log('! BT Connection error' + error);
-            //     isDisconnected(message_tryagain, "error")
-            // }
-        }
-    
-        // function onStopButtonClick(){
-        //     if(serviceCharacteristic){
-        //         serviceCharacteristic.stopNotifications()
-        //         .then(_ => {
-        //             console.log('> Notifications stopped');
-        //             serviceCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
-        //             })
-        //         .catch(error => {
-        //             if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
-        //                 isDisconnected(message_tryagain)
-        //             }
-        //             //NetworkError: GATT operation already in progress.
-        //             //NotSupportedError: GATT operation failed for unknown reason.
-        //             //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
-        //             //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-        //             else{
-        //                 console.log('! BT error: ' + error);
-        //                 isDisconnected(message_error, "error")
-        //             }
-        //         }); 
-        //     }
-        // }
-
-        // function onavailabilitychanged(event){
-        //     this.log("Availabiliy changed: "+event.value)
-        // }
-    
-    
-        // function handleNotifications(event) {
-            
-        //     let buffer = event.target.value;
-    
-        //     // Display raw hex
-        //     // let a = [];
-        //     // for (let i = 0; i < buffer.byteLength; i++) {
-        //     //     a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
-        //     // }
-        //     // console.log('>> ' + a.join(' '));
-
-        //     //let data = bufferToString(value)
-        //     // let data = new DataView(buffer, 0)
-        //     //let data = new Uint8Array(buffer)
-        //     let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
-        //     if(buffer.getUint8(2) > 0){
-        //         value = (value-196096)
-        //     }
-        //     $('[name="position_cur"]').val(value)
-        //     //console.log(value);
-        //     //processNotificationState(data)
-            
-        // }
-
-    
-        sk.addListener('handleNotifications', (e)=>{ 
+        sk.addListener('handlePositionNotifications', (e)=>{ 
             $('[name="position_cur"]').val(e.detail.value)
+        })
+        sk.addListener('handleScaleNotifications', (e)=>{ 
+            if(e.detail.value == 1){
+                $('#strain_push').addClass('active')
+            }
+            else{
+                $('#strain_push').removeClass('active')
+            }
         })
 
     
         /////////////////////////////////////////////////
         /// PROCESSOR
-    
+
         var processNotificationState = function(response){
             var [command, values] = response.split("+")
             switch(command){
@@ -274,6 +158,7 @@
                     break;
             }
         }
+
         let PI = Math.PI;
     
 
@@ -376,40 +261,6 @@
             $('[name="new_profile_name"]').val(v[6].replace("\n", " / "))
         })
     
-        $('#request').on('click', async event => {
-            try {
-    
-                onStartButtonClick()
-    
-                // btn_read(1)
-    
-                // bt.startDoorNotifications(doorNotification)
-    
-    
-    
-                // console.log("Request")
-                // await bt.request();
-                // console.log("Connect")
-    
-                // if(bt.connected) 
-                // await bt.connect();
-    
-                // console.log("Connected")
-    
-                // btn_read(1)
-    
-                // bt.startDoorNotifications(doorNotification)
-    
-                // await bt.readDoor();
-    
-    
-                //console.log("Done")
-    
-                /* Do something with bt... */
-            } catch(error) {
-                console.log(error);
-            }
-        });
     
         var btn_read = async function(number){
             console.log("Readdoor "+number)
@@ -421,7 +272,6 @@
             console.log("   Done")
         }
     
-        
     
         $('#profileconfig').on('click', async event => {
             // OPEN CONFIG WINDOW
@@ -432,46 +282,26 @@
         $('#profileconfig_send').on('click', async event => {
             let msg = $('#profile_message')
     
-            cmd = "SWN|"+$('[name="ssid"]').val()+"|"+$('[name="wifipass"]').val()
-            elem = $(event.target)
-            elem.addClass('processing')
+            // cmd = "SWN|"+$('[name="ssid"]').val()+"|"+$('[name="wifipass"]').val()
+            // elem = $(event.target)
+            // elem.addClass('processing')
     
-            msg.html("Sending config to SmartKnob")
+            // msg.html("Sending config to SmartKnob")
     
-            let value = stringToBuffer("CMD|"+cmd)
-            try{
-                console.log('Sending command: '+cmd+'...');
-                await serviceCharacteristic.writeValue(value);
+            // let value = stringToBuffer("CMD|"+cmd)
+            // try{
+            //     console.log('Sending command: '+cmd+'...');
+            //     await serviceCharacteristic.writeValue(value);
     
-                msg.html("Sending done, waiting back")
-                elem.removeClass('processing')
-                console.log('> Command sent: '+cmd);
-            }
-            catch(error){
-                msg.html("Sending error: "+error)
-                console.log('> Command BT error: '+error);
-                isDisconnected(message_tryagain, "error")
-            }
-        })
-    
-        
-        $('#setwifi').on('click', async event => {
-            cmd = event.target.dataset.cmd
-            elem = $(event.target)
-            elem.addClass('processing').removeClass('open')
-    
-            let value = stringToBuffer("CMD|"+cmd)
-            try{
-                console.log('Sending command: '+cmd+'...');
-                await serviceCharacteristic.writeValue(value);
-    
-                elem.removeClass('processing').addClass('open')
-                console.log('> Command sent: '+cmd);
-            }
-            catch(error){
-                console.log('> Command BT error: '+error);
-                isDisconnected(message_tryagain, "error")
-            }
+            //     msg.html("Sending done, waiting back")
+            //     elem.removeClass('processing')
+            //     console.log('> Command sent: '+cmd);
+            // }
+            // catch(error){
+            //     msg.html("Sending error: "+error)
+            //     console.log('> Command BT error: '+error);
+            //     isDisconnected(message_tryagain, "error")
+            // }
         })
         
     

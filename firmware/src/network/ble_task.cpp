@@ -37,7 +37,9 @@ void BLETask::run() {
     // https://www.uuidgenerator.net/
 
     #define SERVICE_UUID        "0000340f-0000-1000-8000-00805f9b34fb"
-    #define CHARACTERISTIC_UUID "000042ff-0000-1000-8000-00805f9b34fb"
+    #define SCALE_UUID          "0000421f-0000-1000-8000-00805f9b34fb"
+    #define BUTTON_UUID         "0000422f-0000-1000-8000-00805f9b34fb"
+    #define POSITION_CUR_UUID   "602f75a0-697d-4690-8dd5-fa52781446d1"
 
     // Create the BLE Device
     BLEDevice::init("SmartKnob_0123");
@@ -49,18 +51,40 @@ void BLETask::run() {
     // Create the BLE Service
     BLEService *pService = pServer->createService(SERVICE_UUID);
 
+    // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+
     // Create a BLE Characteristic
-    pCharacteristic = pService->createCharacteristic(
-                        CHARACTERISTIC_UUID,
+    pCharacteristic1 = pService->createCharacteristic(
+                        POSITION_CUR_UUID,
                         BLECharacteristic::PROPERTY_READ   |
                         BLECharacteristic::PROPERTY_WRITE  |
                         BLECharacteristic::PROPERTY_NOTIFY |
                         BLECharacteristic::PROPERTY_INDICATE
                     );
-
-    // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
     // Create a BLE Descriptor
-    pCharacteristic->addDescriptor(new BLE2902());
+    pCharacteristic1->addDescriptor(new BLE2902());
+
+    // // Create a BLE Characteristic
+    // pCharacteristic2 = pService->createCharacteristic(
+    //                     SCALE_UUID,
+    //                     BLECharacteristic::PROPERTY_READ   |
+    //                     BLECharacteristic::PROPERTY_WRITE  |
+    //                     BLECharacteristic::PROPERTY_NOTIFY |
+    //                     BLECharacteristic::PROPERTY_INDICATE
+    //                 );
+    // // Create a BLE Descriptor
+    // pCharacteristic2->addDescriptor(new BLE2902());
+
+    // // Create a BLE Characteristic
+    // pCharacteristic3 = pService->createCharacteristic(
+    //                     BUTTON_UUID,
+    //                     BLECharacteristic::PROPERTY_READ   |
+    //                     BLECharacteristic::PROPERTY_WRITE  |
+    //                     BLECharacteristic::PROPERTY_NOTIFY |
+    //                     BLECharacteristic::PROPERTY_INDICATE
+    //                 );
+    // // Create a BLE Descriptor
+    // pCharacteristic3->addDescriptor(new BLE2902());
 
     // Start the service
     pService->start();
@@ -87,8 +111,8 @@ void BLETask::run() {
         if (deviceConnected && !oldDeviceConnected) {
             // do stuff here on connecting
             oldDeviceConnected = deviceConnected;
-            delay(500);
-            pCharacteristic->notify(); // DOES NOT WORK
+            //delay(500);
+            //pCharacteristic->notify(); // DOES NOT WORK
         }
 
         if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
@@ -99,13 +123,26 @@ void BLETask::run() {
         if (deviceConnected) {
 
             if (current_position != state.current_position){
-                logf(state.current_position);
-
-                pCharacteristic->setValue((uint8_t*)&state.current_position, 4);
-                pCharacteristic->notify();
+                pCharacteristic1->setValue((uint8_t*)&state.current_position, 4);
+                pCharacteristic1->notify();
                 current_position = state.current_position;
                 delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
             }
+
+            // if (num_positions != state.config.num_positions){
+            //     pCharacteristic2->setValue((uint8_t*)&state.config.num_positions, 4);
+            //     pCharacteristic2->notify();
+            //     num_positions = state.config.num_positions;
+            //     delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+            // }
+
+            // if (press_value_unit_old != press_value_unit_){
+            //     pCharacteristic1->setValue((uint8_t*)&press_value_unit_, 1);
+            //     pCharacteristic1->notify();
+            //     press_value_unit_old = press_value_unit_;
+            //     delay(3); 
+            // }
+            
         }
 
         // // Check queue for pending requests from other tasks
@@ -129,6 +166,10 @@ void BLETask::run() {
 
     }
 
+}
+
+void BLETask::updateScale(int32_t new_press_value_unit){
+    press_value_unit_ = new_press_value_unit;
 }
 
 void BLETask::addListener(QueueHandle_t queue) {

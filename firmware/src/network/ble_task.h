@@ -40,6 +40,8 @@ class BLETask : public Task<BLETask> {
         // void playHaptic(bool press);
         // void runCalibration();
 
+        void updateScale(int32_t press_value_unit);
+
         QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
 
@@ -56,10 +58,16 @@ class BLETask : public Task<BLETask> {
 
         // BLE Setup
         BLEServer* pServer = NULL;
-        BLECharacteristic* pCharacteristic = NULL;
+        BLECharacteristic* pCharacteristic1 = NULL;
+        BLECharacteristic* pCharacteristic2 = NULL;
+        BLECharacteristic* pCharacteristic3 = NULL;
         // bool BLE_CONNECTED;
         bool oldDeviceConnected = false;
+
+        int32_t press_value_unit_;
+        int32_t press_value_unit_old;
         int32_t current_position;
+        int32_t num_positions;
 
         QueueHandle_t knob_state_queue_;
 

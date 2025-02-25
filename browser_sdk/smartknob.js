@@ -48,21 +48,23 @@ const SmartKnob = class {
 
     serviceUuid = 0x340f // Primary service
 
+    serviceCharacteristics = []
+
     characteristicUuids = {
         'ambient': {
             'uuid': "0000420f-0000-1000-8000-00805f9b34fb",
             'functions': ['read', 'write', 'notify', 'indicate']
         },
-        'push': {
-            'uuid': "0000421f-0000-1000-8000-00805f9b34fb",
+        'scale': {
+            'uuid': "e65dc16e-fb3e-4800-ad86-f78485cc65c2",
             'functions': ['read', 'notify', 'indicate']
         },
         'button': {
-            'uuid': "0000422f-0000-1000-8000-00805f9b34fb",
+            'uuid': "d769e5b4-601c-4506-b1da-29f64069869d",
             'functions': ['read', 'notify', 'indicate']
         },
         'position': {
-            'uuid': "0000423f-0000-1000-8000-00805f9b34fb",
+            'uuid': "602f75a0-697d-4690-8dd5-fa52781446d1",
             'functions': ['read', 'write', 'notify', 'indicate']
         },
         'lights': {
@@ -85,10 +87,9 @@ const SmartKnob = class {
 
     async connect(){
         
-        this.serviceCharacteristic;
         navigator.bluetooth.addEventListener("availabilitychanged", this.onavailabilitychanged)
         
-        try {
+        // try {
 
             this.eventDisconnected(this.debug_messages.connecting, "processing")
             this.log('Requesting Bluetooth Device...');
@@ -103,14 +104,25 @@ const SmartKnob = class {
             this.log('Getting Service...');
             const service = await server.getPrimaryService(this.serviceUuid);
 
-            this.log('Getting Characteristic...');
-            let serviceCharacteristics = await service.getCharacteristics()
-            this.log(serviceCharacteristics)
-            let serviceCharacteristic = await service.getCharacteristic(serviceCharacteristics[0].uuid);
+            this.log('Getting List of Characteristics...');
+            let serviceCharacteristicsList = await service.getCharacteristics()
+            this.log(serviceCharacteristicsList)
+ 
+            let i=0
+            // for(let i=0; i<serviceCharacteristicsList.length; i++){
+                let charac = serviceCharacteristicsList[i]
 
-            await serviceCharacteristic.startNotifications();
-            this.log('> Notifications started');
-            serviceCharacteristic.addEventListener('characteristicvaluechanged', this.handleNotifications);
+                console.log("startNotifications on "+charac.uuid)
+                this.serviceCharacteristics[i] = charac //await service.getCharacteristic(charac.uuid);
+
+                console.log(this.serviceCharacteristics[i])
+                // let value = await this.serviceCharacteristics[i].readValue()
+                // console.log("value: "+ value)
+
+                await this.serviceCharacteristics[i].startNotifications();
+                this.log('> Notifications started on '+charac.uuid);
+                this.serviceCharacteristics[i].addEventListener('characteristicvaluechanged', this.handleNotifications);
+            // }
 
             this.eventConnected()
 
@@ -131,12 +143,12 @@ const SmartKnob = class {
 
             // log('> Alert Level: ' + getAlertLevel(value));
             
-        } catch(error) {
-            // document.querySelector('#writeButton').disabled = true;
-            // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-            this.log('! BT Connection error' + error);
-            this.eventDisconnected(this.debug_messages.tryagain, "error")
-        }
+        // } catch(error) {
+        //     // document.querySelector('#writeButton').disabled = true;
+        //     // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+        //     this.log('! BT Connection error' + error);
+        //     this.eventDisconnected(this.debug_messages.tryagain, "error")
+        // }
     }
 
     disconnect(){
@@ -144,29 +156,33 @@ const SmartKnob = class {
             
             navigator.bluetooth.removeEventListener("availabilitychanged")
 
-            this.serviceCharacteristic.stopNotifications()
-            .then(_ => {
-                this.log('> Notifications stopped');
-                this.serviceCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
-                })
-            .catch(error => {
-                if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
-                    this.eventDisconnected(this.debug_messages.tryagain)
-                }
-                //NetworkError: GATT operation already in progress.
-                //NotSupportedError: GATT operation failed for unknown reason.
-                //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
-                //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-                else{
-                    console.log('! BT error: ' + error);
-                    this.eventDisconnected(this.debug_messages.error, "error")
-                }
-            }); 
+            this.serviceCharacteristics.forEach(async (charac, i) => {
+                this.charac.stopNotifications()
+                .then(_ => {
+                    this.log('> Notifications stopped');
+                    this.charac.removeEventListener('characteristicvaluechanged', handleNotifications);
+                    })
+                .catch(error => {
+                    if(error == "NotFoundError: User cancelled the requestDevice() chooser."){
+                        this.eventDisconnected(this.debug_messages.tryagain)
+                    }
+                    //NetworkError: GATT operation already in progress.
+                    //NotSupportedError: GATT operation failed for unknown reason.
+                    //NetworkError: Failed to execute 'writeValue' on 'BluetoothRemoteGATTCharacteristic': GATT Server is disconnected. Cannot perform GATT operations. (Re)connect first with `device.gatt.connect`.
+                    //NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+                    else{
+                        console.log('! BT error: ' + error);
+                        this.eventDisconnected(this.debug_messages.error, "error")
+                    }
+                }); 
+            })
         }
     }
 
     handleNotifications(event) {
-            
+        
+        console.log(event.currentTarget.uuid)
+
         let buffer = event.target.value;
 
         // Display raw hex
@@ -180,14 +196,30 @@ const SmartKnob = class {
         //let data = bufferToString(value)
         // let data = new DataView(buffer, 0)
         //let data = new Uint8Array(buffer)
-        let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
-        if(buffer.getUint8(2) > 0){
-            value = (value-196096)
+
+        switch(event.currentTarget.uuid){
+            case "602f75a0-697d-4690-8dd5-fa52781446d1":{
+                let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
+                if(buffer.getUint8(2) > 0){
+                    value = (value-196096)
+                }
+
+                document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': value}}))
+                break;
+            }
+            case "0000421f-0000-1000-8000-00805f9b34fb":{
+                let value = buffer.getUint8(0)
+
+                document.dispatchEvent(new CustomEvent('handleScaleNotifications', {detail: {'value': value}}))
+                break;
+            }
         }
+
+
         // $('[name="position_cur"]').val(value)
         //console.log(value);
         //processNotificationState(data)
-        document.dispatchEvent(new CustomEvent('handleNotifications', {detail: {'value': value}}))
+        //document.dispatchEvent(new CustomEvent('handleNotifications', {detail: {'value': value}}))
         
     }
 

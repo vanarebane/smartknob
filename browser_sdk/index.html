@@ -121,53 +121,6 @@
         /////////////////////////////////////////////////
         /// PROCESSOR
 
-        var processNotificationState = function(response){
-            var [command, values] = response.split("+")
-            switch(command){
-                case "DS":
-                    for(x in values){
-                        v = parseInt(values[x])
-                        style = (v == 0) ? "closed" : (v <= 3) ? "processing" : (v == 4) ? "open" : "error"
-                        $('[data-door="'+(parseInt(x)+1)+'"]').removeClass("open error processing closed").addClass(style)
-                    }
-                    break;
-                
-                case "PWR":
-                    if(values == "ON") setPwrState(true)
-                    else if(values == "OFF") setPwrState(false)
-                    break;
-                
-                case "ST":
-                    // console.log(values, $('[data-cmd="'+values+'"]'))
-                    $('#setactive, #setmobile, #setlocked').removeClass("active processing")
-                    $('[data-cmd="'+values+'"]').addClass("active")
-                    break;
-                
-                case "WIFI":
-                    [values, ssid] = values.split('|')
-                    switch(values){
-                        case 'STAT_IDLE':
-                            setWifiState("Idle", 'gray')
-                            break;
-                        case 'STAT_CONNECTING':
-                            setWifiState("Connecting", 'yellow')
-                            break;
-                        case 'STAT_WRONG_PASSWORD':
-                            setWifiState("Wrong password", 'red')
-                            break;
-                        case 'STAT_NO_AP_FOUND':
-                            setWifiState("No AP Found", 'red')
-                            break;
-                        case 'STAT_CONNECT_FAIL':
-                            setWifiState("Connection failed, unknow reason", 'red')
-                            break;
-                        case 'STAT_GOT_IP':
-                            setWifiState("Connected to "+ssid, 'green')
-                            break;
-                    }
-                    break;
-            }
-        }
 
         let PI = Math.PI;
     

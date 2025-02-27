@@ -174,49 +174,78 @@ const SmartKnob = class {
     }
 
     handleCombinedNotifications(event) {
-        
 
-        let buffer = event.target.value;
-        console.log(buffer)
+        let response = bufferToString(event.target.value);
+        console.log(event.target.value, response)
 
-        // Display raw hex
-        let a = [];
-        for (let i = 0; i < buffer.byteLength; i++) {
-            a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
+        var [command, values] = response.split("+")
+        switch(command){
+            case "B":
+                document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': ((values == "1") ? true : false)}}))
+                break;
+
+            case "P":
+                document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': ((values == "1") ? true : false)}}))
+                break;
+
+            case "S":
+                document.dispatchEvent(new CustomEvent('handleScaleNotifications', {detail: {'value': parseFloat(values)}}))
+                break;
+            
+            case "V":
+                document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': parseFloat(values)}}))
+                break;
+            
+            case "M":
+                document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': parseFloat(values)}}))
+                break;
         }
-        console.log('>> ' + a.join(' '));
-
-        // var data = new Int32Array(buffer);
-        //let data = bufferToString(value)
-        // let data = new DataView(buffer, 0)
-        //let data = new Uint8Array(buffer)
-
-        // bit(0) is for boolean values, like push/button
-        let bools = buffer.getUint8(0)
-        let button = ((bools>>0)&1)
-        let push = ((bools>>1)&1)
-
-        document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': button}}))
-        document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': push}}))
-
-        console.log("Bool values: ", button, push)
-
-        // bit(1) is placeholder, not used now
-        // buffer.getUint8(1)
-
-        // bit(2-5) are for current position
-        let value = buffer.getUint8(2)+(buffer.getUint8(3)*256)+(buffer.getUint8(4)*256)+(buffer.getUint8(5)*256)
-        if(buffer.getUint8(4) > 0){ // if last two last bits have any value, the value is in negative
-            value = (value-196096)
-        }
-        document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': value}}))
-        
-        // bit(6-7) are for position config
-        let position_set = buffer.getUint8(6)+(buffer.getUint8(7)*256)
-        document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': position_set}}))
-
-        
     }
+
+    // handleCombinedNotifications(event) {
+        
+
+    //     let buffer = event.target.value;
+    //     console.log(buffer)
+
+    //     // Display raw hex
+    //     let a = [];
+    //     for (let i = 0; i < buffer.byteLength; i++) {
+    //         a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
+    //     }
+    //     console.log('>> ' + a.join(' '));
+
+    //     // var data = new Int32Array(buffer);
+    //     //let data = bufferToString(value)
+    //     // let data = new DataView(buffer, 0)
+    //     //let data = new Uint8Array(buffer)
+
+    //     // bit(0) is for boolean values, like push/button
+    //     let bools = buffer.getUint8(0)
+    //     let button = ((bools>>0)&1)
+    //     let push = ((bools>>1)&1)
+
+    //     document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': button}}))
+    //     document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': push}}))
+
+    //     console.log("Bool values: ", button, push)
+
+    //     // bit(1) is placeholder, not used now
+    //     // buffer.getUint8(1)
+
+    //     // bit(2-5) are for current position
+    //     let value = buffer.getUint8(2)+(buffer.getUint8(3)*256)+(buffer.getUint8(4)*256)+(buffer.getUint8(5)*256)
+    //     if(buffer.getUint8(4) > 0){ // if last two last bits have any value, the value is in negative
+    //         value = (value-196096)
+    //     }
+    //     document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': value}}))
+        
+    //     // bit(6-7) are for position config
+    //     let position_set = buffer.getUint8(6)+(buffer.getUint8(7)*256)
+    //     document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': position_set}}))
+
+        
+    // }
     handleNotifications(event) {
         
         console.log(event.currentTarget.uuid)
@@ -284,13 +313,7 @@ const SmartKnob = class {
         // this.log(`${element} is removed from listening for ${eventName}`);
     }
         
-    bufferToString(data) {
-        if (!("TextDecoder" in window))
-            alert("Sorry, this browser does not support TextDecoder...");
-        var enc = new TextDecoder("utf-8");
-        var arr = new Uint8Array(data.buffer);
-        return enc.decode(arr);
-    }
+
 
     stringToBuffer(str) {
         let Len = str.length,
@@ -350,4 +373,12 @@ const SmartKnob = class {
     log(){
         if(this.debug) console.log(...arguments);
     }
+}
+
+function bufferToString(data) {
+    if (!("TextDecoder" in window))
+        alert("Sorry, this browser does not support TextDecoder...");
+    var enc = new TextDecoder("utf-8");
+    var arr = new Uint8Array(data.buffer);
+    return enc.decode(arr);
 }

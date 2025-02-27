@@ -62,10 +62,13 @@ class BLETask : public Task<BLETask> {
         bool oldDeviceConnected = false;
 
         int32_t response = 0;
-        bool hasUpdate = false;
+        // bool hasUpdate = false;
         int32_t press_value_unit_;
-        bool press_value_state_;
+        int32_t press_value_unit_old;
+        bool press_state_;
+        bool press_state_old;
         bool button_state_;
+        bool button_state_old;
         int32_t current_position;
         int32_t num_positions;
 
@@ -73,6 +76,9 @@ class BLETask : public Task<BLETask> {
 
         PB_SmartKnobState state_;
         SemaphoreHandle_t mutex_;
+
+        void sendNotify(int, bool);
+        void sendNotify(int, int32_t);
 
         void publish(const PB_SmartKnobState& state);
         // void calibrate();

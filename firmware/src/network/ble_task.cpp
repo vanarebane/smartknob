@@ -15,7 +15,7 @@ class KnobServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-BLETask::BLETask(const uint8_t task_core) : Task("BLE", 2100, 1, task_core) {
+BLETask::BLETask(const uint8_t task_core) : Task("BLE", 2700, 1, task_core) {
     queue_ = xQueueCreate(5, sizeof(Message));
     assert(queue_ != NULL);
     
@@ -99,57 +99,68 @@ void BLETask::run() {
 
         // notify changed value
         if (deviceConnected) {
-
+            
             // if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
-                if (current_position != state.current_position){
-                    current_position = state.current_position;
-                    hasUpdate = true;
-                }
-                if (num_positions != state.config.num_positions){
-                    num_positions = state.config.num_positions;
-                    hasUpdate = true;
-                }
+                // if (current_position != state.current_position){
+                //     current_position = state.current_position;
+                //     sendNotify("V+"+num_positions);
+                // }
+                // if (num_positions != state.config.num_positions){
+                //     num_positions = state.config.num_positions;
+                //     sendNotify("M+"+num_positions);
+                // }
             // }
 
-            if(hasUpdate){
+            // if(hasUpdate){
 
-                hasUpdate = false;
-                // formulate response
-                response = 0;
-                if(button_state_) response += 1;
-                if(press_value_unit_) response += 2;
-                // if(...) response += 4;
-                // if(...) response += 8;
-                // if(...) response += 16;
-                // if(...) response += 32;
-                // if(...) response += 64;
-                // if(...) response += 128;
-                // if(...) response += 256;
+            //     hasUpdate = false;
+            //     // formulate response
+            //     response = 0;
+            //     if(button_state_) response += 1;
+            //     if(press_value_unit_) response += 2;
+            //     // if(...) response += 4;
+            //     // if(...) response += 8;
+            //     // if(...) response += 16;
+            //     // if(...) response += 32;
+            //     // if(...) response += 64;
+            //     // if(...) response += 128;
+            //     // if(...) response += 256;
 
-                // current position into bit 2-5
-                response += current_position*65536;
+            //     // current position into bit 2-5
+            //     response += current_position*65536;
 
-                // current position_set into bit 7-8
-                response += num_positions*(256^7);
+            //     // current position_set into bit 7-8
+            //     //response += num_positions*(256^7);
 
-                pCharacteristic->setValue((uint8_t*)&response, 16);
-                pCharacteristic->notify();
-                delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
-            }
-
-            // if (num_positions != state.config.num_positions){
-            //     pCharacteristic2->setValue((uint8_t*)&state.config.num_positions, 4);
-            //     pCharacteristic2->notify();
-            //     num_positions = state.config.num_positions;
+            //     pCharacteristic->setValue((uint8_t*)&response, 16);
+            //     pCharacteristic->notify();
             //     delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
             // }
+            
+            if(button_state_old != button_state_){
+                button_state_old = button_state_;
+                sendNotify(1, button_state_old);
+            }
 
-            // if (press_value_unit_old != press_value_unit_){
-            //     pCharacteristic1->setValue((uint8_t*)&press_value_unit_, 1);
-            //     pCharacteristic1->notify();
-            //     press_value_unit_old = press_value_unit_;
-            //     delay(3); 
-            // }
+            if(press_value_unit_old != press_value_unit_){
+                press_value_unit_old = press_value_unit_;
+                sendNotify(2, press_value_unit_old);
+            }
+
+            if (press_state_old != press_state_){
+                press_state_old = press_state_;
+                sendNotify(3, press_state_old);
+            }
+
+            if (current_position != state.current_position){
+                current_position = state.current_position;
+                sendNotify(4, current_position);
+            }
+
+            if (num_positions != state.config.num_positions){
+                num_positions = state.config.num_positions;
+                sendNotify(5, num_positions);
+            }
             
         }
 
@@ -176,19 +187,40 @@ void BLETask::run() {
 
 }
 
+void BLETask::sendNotify(int key, bool data){
+	uint32_t temp[2];
+	temp[0] = key;
+	temp[1] = (int32_t*)&data;
+    pCharacteristic->setValue((uint8_t*)&temp, 2);
+    pCharacteristic->notify();
+    delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+}
+void BLETask::sendNotify(int key, int32_t data32){
+	uint32_t temp[8];
+	temp[0] = key;
+	temp[1] = data32;
+	temp[2] = data32 >> 8;
+	temp[3] = data32 >> 16;
+	temp[4] = data32 >> 24;
+	temp[5] = data32 >> 32;
+    pCharacteristic->setValue((uint8_t*)&temp,5);
+    pCharacteristic->notify();
+    delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+}
+
 void BLETask::updateScale(int32_t new_press_value_unit){
     press_value_unit_ = new_press_value_unit;
     // hasUpdate = true;
 }
 
-void BLETask::updateScale(bool new_press_value_state){
-    press_value_state_ = new_press_value_state;
-    hasUpdate = true;
+void BLETask::updateScale(bool new_press_state){
+    press_state_ = new_press_state;
+    // hasUpdate = true;
 }
 
 void BLETask::updateButton(bool new_button_state){
     button_state_ = new_button_state;
-    hasUpdate = true;
+    // hasUpdate = true;
 }
 
 void BLETask::addListener(QueueHandle_t queue) {

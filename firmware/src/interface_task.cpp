@@ -256,7 +256,7 @@ void InterfaceTask::updateHardware() {
         if (scale.wait_ready_timeout(100)) {
             int32_t reading = scale.read();
             
-            ble_task_.updateScale(reading);
+            //ble_task_.updateScale(reading);
 
             static uint32_t last_reading_display;
             if (millis() - last_reading_display > 1000) {

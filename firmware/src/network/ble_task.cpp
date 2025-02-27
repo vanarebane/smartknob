@@ -37,9 +37,7 @@ void BLETask::run() {
     // https://www.uuidgenerator.net/
 
     #define SERVICE_UUID        "0000340f-0000-1000-8000-00805f9b34fb"
-    #define SCALE_UUID          "0000421f-0000-1000-8000-00805f9b34fb"
-    #define BUTTON_UUID         "0000422f-0000-1000-8000-00805f9b34fb"
-    #define POSITION_CUR_UUID   "602f75a0-697d-4690-8dd5-fa52781446d1"
+    #define CHARACTERISTIC_UUID   "602f75a0-697d-4690-8dd5-fa52781446d1"
 
     // Create the BLE Device
     BLEDevice::init("SmartKnob_0123");
@@ -54,37 +52,16 @@ void BLETask::run() {
     // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
 
     // Create a BLE Characteristic
-    pCharacteristic1 = pService->createCharacteristic(
-                        POSITION_CUR_UUID,
-                        BLECharacteristic::PROPERTY_READ   |
-                        BLECharacteristic::PROPERTY_WRITE  |
-                        BLECharacteristic::PROPERTY_NOTIFY |
-                        BLECharacteristic::PROPERTY_INDICATE
-                    );
+    pCharacteristic = pService->createCharacteristic(
+            CHARACTERISTIC_UUID,
+            BLECharacteristic::PROPERTY_READ   |
+            BLECharacteristic::PROPERTY_WRITE  |
+            BLECharacteristic::PROPERTY_NOTIFY |
+            BLECharacteristic::PROPERTY_INDICATE
+        );
     // Create a BLE Descriptor
-    pCharacteristic1->addDescriptor(new BLE2902());
+    pCharacteristic->addDescriptor(new BLE2902());
 
-    // // Create a BLE Characteristic
-    // pCharacteristic2 = pService->createCharacteristic(
-    //                     SCALE_UUID,
-    //                     BLECharacteristic::PROPERTY_READ   |
-    //                     BLECharacteristic::PROPERTY_WRITE  |
-    //                     BLECharacteristic::PROPERTY_NOTIFY |
-    //                     BLECharacteristic::PROPERTY_INDICATE
-    //                 );
-    // // Create a BLE Descriptor
-    // pCharacteristic2->addDescriptor(new BLE2902());
-
-    // // Create a BLE Characteristic
-    // pCharacteristic3 = pService->createCharacteristic(
-    //                     BUTTON_UUID,
-    //                     BLECharacteristic::PROPERTY_READ   |
-    //                     BLECharacteristic::PROPERTY_WRITE  |
-    //                     BLECharacteristic::PROPERTY_NOTIFY |
-    //                     BLECharacteristic::PROPERTY_INDICATE
-    //                 );
-    // // Create a BLE Descriptor
-    // pCharacteristic3->addDescriptor(new BLE2902());
 
     // Start the service
     pService->start();
@@ -115,6 +92,7 @@ void BLETask::run() {
             //pCharacteristic->notify(); // DOES NOT WORK
         }
 
+        // Old method here, skip everything if no update from knob
         if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
             continue;
         }
@@ -122,10 +100,40 @@ void BLETask::run() {
         // notify changed value
         if (deviceConnected) {
 
-            if (current_position != state.current_position){
-                pCharacteristic1->setValue((uint8_t*)&state.current_position, 4);
-                pCharacteristic1->notify();
-                current_position = state.current_position;
+            // if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
+                if (current_position != state.current_position){
+                    current_position = state.current_position;
+                    hasUpdate = true;
+                }
+                if (num_positions != state.config.num_positions){
+                    num_positions = state.config.num_positions;
+                    hasUpdate = true;
+                }
+            // }
+
+            if(hasUpdate){
+
+                hasUpdate = false;
+                // formulate response
+                response = 0;
+                if(button_state_) response += 1;
+                if(press_value_unit_) response += 2;
+                // if(...) response += 4;
+                // if(...) response += 8;
+                // if(...) response += 16;
+                // if(...) response += 32;
+                // if(...) response += 64;
+                // if(...) response += 128;
+                // if(...) response += 256;
+
+                // current position into bit 2-5
+                response += current_position*65536;
+
+                // current position_set into bit 7-8
+                response += num_positions*(256^7);
+
+                pCharacteristic->setValue((uint8_t*)&response, 16);
+                pCharacteristic->notify();
                 delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
             }
 
@@ -170,6 +178,17 @@ void BLETask::run() {
 
 void BLETask::updateScale(int32_t new_press_value_unit){
     press_value_unit_ = new_press_value_unit;
+    // hasUpdate = true;
+}
+
+void BLETask::updateScale(bool new_press_value_state){
+    press_value_state_ = new_press_value_state;
+    hasUpdate = true;
+}
+
+void BLETask::updateButton(bool new_button_state){
+    button_state_ = new_button_state;
+    hasUpdate = true;
 }
 
 void BLETask::addListener(QueueHandle_t queue) {

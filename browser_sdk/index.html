@@ -23,7 +23,7 @@
             <label for="position_cur" class="pwroff">Position:</label>
             <input style="text-align: right;" name="position_cur" value="0" type="text" disabled>
             <span style="text-align: center; width: 10px;" >/</span>
-            <input name="position" value="0" type="text" disabled>
+            <input name="position_set" value="0" type="text" disabled>
         </div>
         <div class="profilegroup">
             <label for="light" class="pwroff">Light:</label>
@@ -98,13 +98,23 @@
         sk.addListener('handlePositionNotifications', (e)=>{ 
             $('[name="position_cur"]').val(e.detail.value)
         })
-        sk.addListener('handleScaleNotifications', (e)=>{ 
+        sk.addListener('handlePositionSetNotifications', (e)=>{ 
+            $('[name="position_set"]').val(e.detail.value)
+        })
+
+        sk.addListener('handlePushNotifications', (e)=>{ 
             if(e.detail.value == 1){
                 $('#strain_push').addClass('active')
             }
             else{
                 $('#strain_push').removeClass('active')
             }
+        })
+        sk.addListener('handleScaleNotifications', (e)=>{ 
+            $('[name="strain_raw"]').val(e.detail.value)
+        })
+        sk.addListener('handleButtonNotifications', (e)=>{ 
+            $('[name="knob_button"]').val(e.detail.value)
         })
 
     

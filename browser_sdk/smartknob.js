@@ -43,12 +43,11 @@ const SmartKnob = class {
         'error': "Error"
     }
 
-    // isConnected = new CustomEvent('isConnected', {detail: {'message': this.debug_messages.connected, 'type': "success"}})
-    // isDisconnected = new CustomEvent('isDisconnected', {})
-
     serviceUuid = 0x340f // Primary service
 
     serviceCharacteristics = []
+
+    useSingleCharacteristics = true
 
     characteristicUuids = {
         'ambient': {
@@ -89,7 +88,7 @@ const SmartKnob = class {
         
         navigator.bluetooth.addEventListener("availabilitychanged", this.onavailabilitychanged)
         
-        // try {
+        try {
 
             this.eventDisconnected(this.debug_messages.connecting, "processing")
             this.log('Requesting Bluetooth Device...');
@@ -108,47 +107,42 @@ const SmartKnob = class {
             let serviceCharacteristicsList = await service.getCharacteristics()
             this.log(serviceCharacteristicsList)
  
-            let i=0
-            // for(let i=0; i<serviceCharacteristicsList.length; i++){
+            if(this.useSingleCharacteristics){
+                let i=0 // Just use the first Characteristics
                 let charac = serviceCharacteristicsList[i]
 
                 console.log("startNotifications on "+charac.uuid)
                 this.serviceCharacteristics[i] = charac //await service.getCharacteristic(charac.uuid);
 
-                console.log(this.serviceCharacteristics[i])
-                // let value = await this.serviceCharacteristics[i].readValue()
-                // console.log("value: "+ value)
-
                 await this.serviceCharacteristics[i].startNotifications();
                 this.log('> Notifications started on '+charac.uuid);
-                this.serviceCharacteristics[i].addEventListener('characteristicvaluechanged', this.handleNotifications);
-            // }
+                this.serviceCharacteristics[i].addEventListener('characteristicvaluechanged', this.handleCombinedNotifications);
+            }
+            else{
+                for(let i=0; i<serviceCharacteristicsList.length; i++){
+                    let charac = serviceCharacteristicsList[i]
+
+                    console.log("startNotifications on "+charac.uuid)
+                    this.serviceCharacteristics[i] = charac //await service.getCharacteristic(charac.uuid);
+
+                    console.log(this.serviceCharacteristics[i])
+                    // let value = await this.serviceCharacteristics[i].readValue()
+                    // console.log("value: "+ value)
+
+                    await this.serviceCharacteristics[i].startNotifications();
+                    this.log('> Notifications started on '+charac.uuid);
+                    this.serviceCharacteristics[i].addEventListener('characteristicvaluechanged', this.handleNotifications);
+                }
+            }
 
             this.eventConnected()
 
-            // log('Getting Service 2...');
-            // const service2 = await server.getPrimaryService(serviceUuid2);
-
-            // log('Getting Characteristic 2...');
-            // powerCharacteristic = await service2.getCharacteristic(powerCharacteristicUuid);
-
-            // await powerCharacteristic.startNotifications();
-            // log('> Notifications started');
-            // powerCharacteristic.addEventListener('characteristicvaluechanged', handlePwrNotifications);
-
-
-            // document.querySelector('#writeButton').disabled = false;
-            // log('Reading Alert Level...');
-            // const value = await serviceCharacteristic.readValue();
-
-            // log('> Alert Level: ' + getAlertLevel(value));
             
-        // } catch(error) {
-        //     // document.querySelector('#writeButton').disabled = true;
-        //     // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
-        //     this.log('! BT Connection error' + error);
-        //     this.eventDisconnected(this.debug_messages.tryagain, "error")
-        // }
+        } catch(error) {
+            // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
+            this.log('! BT Connection error' + error);
+            this.eventDisconnected(this.debug_messages.tryagain, "error")
+        }
     }
 
     disconnect(){
@@ -179,6 +173,50 @@ const SmartKnob = class {
         }
     }
 
+    handleCombinedNotifications(event) {
+        
+
+        let buffer = event.target.value;
+        console.log(buffer)
+
+        // Display raw hex
+        let a = [];
+        for (let i = 0; i < buffer.byteLength; i++) {
+            a.push('0x' + ('00' + buffer.getUint8(i).toString(16)).slice(-2));
+        }
+        console.log('>> ' + a.join(' '));
+
+        // var data = new Int32Array(buffer);
+        //let data = bufferToString(value)
+        // let data = new DataView(buffer, 0)
+        //let data = new Uint8Array(buffer)
+
+        // bit(0) is for boolean values, like push/button
+        let bools = buffer.getUint8(0)
+        let button = ((bools>>0)&1)
+        let push = ((bools>>1)&1)
+
+        document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': button}}))
+        document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': push}}))
+
+        console.log("Bool values: ", button, push)
+
+        // bit(1) is placeholder, not used now
+        // buffer.getUint8(1)
+
+        // bit(2-5) are for current position
+        let value = buffer.getUint8(2)+(buffer.getUint8(3)*256)+(buffer.getUint8(4)*256)+(buffer.getUint8(5)*256)
+        if(buffer.getUint8(4) > 0){ // if last two last bits have any value, the value is in negative
+            value = (value-196096)
+        }
+        document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': value}}))
+        
+        // bit(6-7) are for position config
+        let position_set = buffer.getUint8(6)+(buffer.getUint8(7)*256)
+        document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': position_set}}))
+
+        
+    }
     handleNotifications(event) {
         
         console.log(event.currentTarget.uuid)
@@ -198,7 +236,8 @@ const SmartKnob = class {
         //let data = new Uint8Array(buffer)
 
         switch(event.currentTarget.uuid){
-            case "602f75a0-697d-4690-8dd5-fa52781446d1":{
+            // Position
+            case SmartKnob.characteristicUuids.position.uuid:{ 
                 let value = buffer.getUint8(0)+(buffer.getUint8(1)*256)+(buffer.getUint8(2)*256)+(buffer.getUint8(3)*256)
                 if(buffer.getUint8(2) > 0){
                     value = (value-196096)
@@ -207,19 +246,14 @@ const SmartKnob = class {
                 document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': value}}))
                 break;
             }
-            case "0000421f-0000-1000-8000-00805f9b34fb":{
+            // Scale
+            case SmartKnob.characteristicUuids.scale.uuid:{
                 let value = buffer.getUint8(0)
 
                 document.dispatchEvent(new CustomEvent('handleScaleNotifications', {detail: {'value': value}}))
                 break;
             }
         }
-
-
-        // $('[name="position_cur"]').val(value)
-        //console.log(value);
-        //processNotificationState(data)
-        //document.dispatchEvent(new CustomEvent('handleNotifications', {detail: {'value': value}}))
         
     }
 

@@ -255,6 +255,8 @@ void InterfaceTask::updateHardware() {
     #if SK_STRAIN
         if (scale.wait_ready_timeout(100)) {
             int32_t reading = scale.read();
+            
+            ble_task_.updateScale(reading);
 
             static uint32_t last_reading_display;
             if (millis() - last_reading_display > 1000) {
@@ -274,10 +276,12 @@ void InterfaceTask::updateHardware() {
                 static bool pressed;
                 if (!pressed && press_value_unit > 0.75) {
                     motor_task_.playHaptic(true);
+                    ble_task_.updateScale(true);
                     pressed = true;
                     changeConfig(true);
                 } else if (pressed && press_value_unit < 0.25) {
                     motor_task_.playHaptic(false);
+                    ble_task_.updateScale(false);
                     pressed = false;
                 }
             }

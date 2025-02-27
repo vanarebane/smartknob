@@ -36,11 +36,10 @@ class BLETask : public Task<BLETask> {
     public:
         BLETask(const uint8_t task_core);
         ~BLETask();
-        // void setConfig(const PB_SmartKnobConfig& config);
-        // void playHaptic(bool press);
-        // void runCalibration();
 
         void updateScale(int32_t press_value_unit);
+        void updateScale(bool press_value_state);
+        void updateButton(bool button_state);
 
         QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
@@ -58,14 +57,15 @@ class BLETask : public Task<BLETask> {
 
         // BLE Setup
         BLEServer* pServer = NULL;
-        BLECharacteristic* pCharacteristic1 = NULL;
-        BLECharacteristic* pCharacteristic2 = NULL;
-        BLECharacteristic* pCharacteristic3 = NULL;
+        BLECharacteristic* pCharacteristic = NULL;
         // bool BLE_CONNECTED;
         bool oldDeviceConnected = false;
 
+        int32_t response = 0;
+        bool hasUpdate = false;
         int32_t press_value_unit_;
-        int32_t press_value_unit_old;
+        bool press_value_state_;
+        bool button_state_;
         int32_t current_position;
         int32_t num_positions;
 

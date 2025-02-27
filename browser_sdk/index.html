@@ -103,7 +103,7 @@
         })
 
         sk.addListener('handlePushNotifications', (e)=>{ 
-            if(e.detail.value == 1){
+            if(e.detail.value){
                 $('#strain_push').addClass('active')
             }
             else{

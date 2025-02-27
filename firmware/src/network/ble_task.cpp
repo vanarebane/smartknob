@@ -188,14 +188,15 @@ void BLETask::run() {
 }
 
 void BLETask::sendNotify(int key, bool data){
-	uint32_t temp[2];
+	uint8_t temp[2];
 	temp[0] = key;
-	temp[1] = (int32_t*)&data;
+    if(data) temp[1] = 0;
+    else temp[1] = 1;
     pCharacteristic->setValue((uint8_t*)&temp, 2);
     pCharacteristic->notify();
     delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }
-void BLETask::sendNotify(int key, int32_t data32){
+void BLETask::sendNotify(int key, uint32_t data32){
 	uint32_t temp[8];
 	temp[0] = key;
 	temp[1] = data32;
@@ -203,7 +204,9 @@ void BLETask::sendNotify(int key, int32_t data32){
 	temp[3] = data32 >> 16;
 	temp[4] = data32 >> 24;
 	temp[5] = data32 >> 32;
-    pCharacteristic->setValue((uint8_t*)&temp,5);
+	temp[6] = data32 >> 40;
+	temp[7] = data32 >> 48;
+    pCharacteristic->setValue((uint8_t*)&temp,8);
     pCharacteristic->notify();
     delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }

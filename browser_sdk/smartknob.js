@@ -175,29 +175,34 @@ const SmartKnob = class {
 
     handleCombinedNotifications(event) {
 
-        let response = bufferToString(event.target.value);
-        console.log(event.target.value, response)
+        let buffer = event.target.value;
+        let response = bufferToString(buffer);
+        
+        let value = 0
+        for(let i=4; i<buffer.byteLength; i++){
+            value += buffer.getUint8(i)
+        }
+        console.log(buffer, buffer.byteLength, response, value)
 
-        var [command, values] = response.split("+")
-        switch(command){
-            case "B":
-                document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': ((values == "1") ? true : false)}}))
+        switch(buffer.getUint8(0)){
+            case 1:
+                document.dispatchEvent(new CustomEvent('handleButtonNotifications', {detail: {'value': ((buffer.getUint8(1) == 1) ? true : false)}}))
                 break;
 
-            case "P":
-                document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': ((values == "1") ? true : false)}}))
+            case 2:
+                document.dispatchEvent(new CustomEvent('handleScaleNotifications', {detail: {'value': parseFloat(value)}}))
                 break;
 
-            case "S":
-                document.dispatchEvent(new CustomEvent('handleScaleNotifications', {detail: {'value': parseFloat(values)}}))
+            case 3:
+                document.dispatchEvent(new CustomEvent('handlePushNotifications', {detail: {'value': ((buffer.getUint8(1) == 1) ? true : false)}}))
                 break;
             
-            case "V":
-                document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': parseFloat(values)}}))
+            case 4:
+                document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': parseFloat(value)}}))
                 break;
             
-            case "M":
-                document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': parseFloat(values)}}))
+            case 5:
+                document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': parseFloat(value)}}))
                 break;
         }
     }

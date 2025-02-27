@@ -63,14 +63,14 @@ class BLETask : public Task<BLETask> {
 
         int32_t response = 0;
         // bool hasUpdate = false;
-        int32_t press_value_unit_;
-        int32_t press_value_unit_old;
+        uint32_t press_value_unit_;
+        uint32_t press_value_unit_old;
         bool press_state_;
         bool press_state_old;
         bool button_state_;
         bool button_state_old;
-        int32_t current_position;
-        int32_t num_positions;
+        uint32_t current_position;
+        uint32_t num_positions;
 
         QueueHandle_t knob_state_queue_;
 
@@ -78,7 +78,7 @@ class BLETask : public Task<BLETask> {
         SemaphoreHandle_t mutex_;
 
         void sendNotify(int, bool);
-        void sendNotify(int, int32_t);
+        void sendNotify(int, uint32_t);
 
         void publish(const PB_SmartKnobState& state);
         // void calibrate();

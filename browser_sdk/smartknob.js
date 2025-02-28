@@ -216,6 +216,24 @@ const SmartKnob = class {
         }
     }
 
+    async sendWrite(cmd, value){
+        let msg = $('#profile_message')
+
+        try{
+            console.log('Sending command: '+cmd+'...');
+            await this.serviceCharacteristics[0].writeValue(value);
+
+            msg.html("Sending done, waiting back")
+            elem.removeClass('processing')
+            console.log('> Command sent: '+cmd);
+        }
+        catch(error){
+            msg.html("Sending error: "+error)
+            console.log('> Command BT error: '+error);
+            this.isDisconnected(message_tryagain, "error")
+        }
+    }
+
     // handleCombinedNotifications(event) {
         
 

@@ -262,13 +262,16 @@
         $('#profileconfig_send').on('click', async event => {
             let msg = $('#profile_message')
     
-            // cmd = "SWN|"+$('[name="ssid"]').val()+"|"+$('[name="wifipass"]').val()
-            // elem = $(event.target)
-            // elem.addClass('processing')
+            cmd = "SWN"
+            elem = $(event.target)
+            elem.addClass('processing')
     
-            // msg.html("Sending config to SmartKnob")
+            msg.html("Sending config to SmartKnob")
     
-            // let value = stringToBuffer("CMD|"+cmd)
+            let value = sk.stringToBuffer("CMD|"+cmd)
+
+            let res = await sk.sendWrite(cmd, value);
+
             // try{
             //     console.log('Sending command: '+cmd+'...');
             //     await serviceCharacteristic.writeValue(value);

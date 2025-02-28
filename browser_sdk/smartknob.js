@@ -180,7 +180,7 @@ const SmartKnob = class {
         
         let value = 0
         for(let i=4; i<buffer.byteLength; i++){
-            value += buffer.getUint8(i)
+            value += (i>4) ? buffer.getUint8(i)*(256*(i-4)) : buffer.getUint8(i) 
         }
         console.log(buffer, buffer.byteLength, response, value)
 
@@ -198,11 +198,20 @@ const SmartKnob = class {
                 break;
             
             case 4:
+                
+                value = buffer.getUint8(4)+(buffer.getUint8(5)*256)+(buffer.getUint8(6))+(buffer.getUint8(7)*256)
+                if(buffer.getUint8(6) > 0){ // if last two last bits have any value, the value is in negative
+                    value = (value-131071)
+                }
                 document.dispatchEvent(new CustomEvent('handlePositionNotifications', {detail: {'value': parseFloat(value)}}))
                 break;
             
             case 5:
-                document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': parseFloat(value)}}))
+                document.dispatchEvent(new CustomEvent('handlePositionSetNotifications', {detail: {'value': parseFloat(value-1)}}))
+                break;
+            
+            case 6:
+                document.dispatchEvent(new CustomEvent('handleLuxNotifications', {detail: {'value': parseFloat(value-1)}}))
                 break;
         }
     }

@@ -26,8 +26,8 @@
             <input name="position_set" value="0" type="text" disabled>
         </div>
         <div class="profilegroup">
-            <label for="light" class="pwroff">Light:</label>
-            <input style="text-align: right;" name="light" value="0" type="text" disabled>
+            <label for="light_raw" class="pwroff">Light:</label>
+            <input style="text-align: right;" name="light_raw" value="0" type="text" disabled>
             <span>millilux</span>
         </div>
         <div class="profilegroup">
@@ -38,7 +38,7 @@
         </div>
         <div class="profilegroup">
             <label for="knob_button" class="pwroff">Button:</label>
-            <input style="width: 100%;" name="knob_button" value="0" type="text" disabled>
+            <button style="width: 100%; text-align: center;" class="statebtns" id="knob_button">Push</button>
         </div>
 
         <div class="profilegroup">
@@ -95,13 +95,21 @@
         
         $('#request').on('click', async event => {sk.connect()});
 
+        // Position notifications
         sk.addListener('handlePositionNotifications', (e)=>{ 
             $('[name="position_cur"]').val(e.detail.value)
         })
+        // Position set value notifications
         sk.addListener('handlePositionSetNotifications', (e)=>{ 
             $('[name="position_set"]').val(e.detail.value)
         })
 
+        // Lux reading notification / 1 per sec
+        sk.addListener('handleLuxNotifications', (e)=>{ 
+            $('[name="light_raw"]').val(e.detail.value)
+        })
+
+        // Scale push notifications 
         sk.addListener('handlePushNotifications', (e)=>{ 
             if(e.detail.value){
                 $('#strain_push').addClass('active')
@@ -110,13 +118,22 @@
                 $('#strain_push').removeClass('active')
             }
         })
+        // Scale reading notifications / 1 per sec
         sk.addListener('handleScaleNotifications', (e)=>{ 
             $('[name="strain_raw"]').val(e.detail.value)
         })
-        sk.addListener('handleButtonNotifications', (e)=>{ 
-            $('[name="knob_button"]').val(e.detail.value)
-        })
 
+        // Button notification
+        sk.addListener('handleButtonNotifications', (e)=>{ 
+            if(e.detail.value){
+                $('#knob_button').addClass('active')
+            }
+            else{
+                $('#knob_button').removeClass('active')
+            }
+        })
+        
+        
     
         /////////////////////////////////////////////////
         /// PROCESSOR

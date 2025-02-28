@@ -40,6 +40,7 @@ class BLETask : public Task<BLETask> {
         void updateScale(int32_t press_value_unit);
         void updateScale(bool press_value_state);
         void updateButton(bool button_state);
+        void updateLux(float new_lux_value);
 
         QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
@@ -71,6 +72,8 @@ class BLETask : public Task<BLETask> {
         bool button_state_old;
         uint32_t current_position;
         uint32_t num_positions;
+        float lux_value_;
+        float lux_value_old;
 
         QueueHandle_t knob_state_queue_;
 

@@ -150,4 +150,8 @@ void DisplayTask::log(const char* msg) {
     }
 }
 
+#else
+
+class DisplayTask {};
+
 #endif

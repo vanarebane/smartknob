@@ -2,10 +2,7 @@
 
 #if SK_BLE
 
-// #include <iostream>
-// #include <vector>
 #include <cstring> // Include for std::strncpy, std::strtok, and std::strncmp
-// #include <cstdlib> // Include for std::atoi and std::atof
 
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -63,9 +60,12 @@ class BLETask : public Task<BLETask> {
         Logger* logger_;
         std::vector<QueueHandle_t> listeners_;
 
+        int ble_delay = 3;
+
         // BLE Setup
         BLEServer* pServer = NULL;
-        BLECharacteristic* pCharacteristic = NULL;
+        BLECharacteristic* pTxCharacteristic;
+        BLECharacteristic* pRxCharacteristic;
         // bool BLE_CONNECTED;
         bool oldDeviceConnected = false;
 
@@ -82,6 +82,8 @@ class BLETask : public Task<BLETask> {
         float lux_value_;
         float lux_value_old;
         PB_SmartKnobConfig new_motor_config;
+        uint32_t temp32[8];
+        uint8_t temp8[2];
 
         QueueHandle_t knob_state_queue_;
 

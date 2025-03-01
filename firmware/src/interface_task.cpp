@@ -266,6 +266,18 @@ void InterfaceTask::updateHardware() {
         }
     #endif
 
+    
+    #if SK_BLE
+        if(ble_task_.hasNewMotorConfig()){
+            PB_SmartKnobConfig config = ble_task_.getMotorConfig();
+            
+            char buf_[256];
+            snprintf(buf_, sizeof(buf_), "Changing config from BT -- %s", config.text);
+            log(buf_);
+            motor_task_.setConfig(config);
+        }
+    #endif
+
     #if SK_STRAIN
         if (scale.wait_ready_timeout(100)) {
             int32_t reading = scale.read();
@@ -292,7 +304,7 @@ void InterfaceTask::updateHardware() {
                     motor_task_.playHaptic(true);
                     ble_task_.updateScale(true);
                     pressed = true;
-                    changeConfig(true);
+                    // changeConfig(true);
                 } else if (pressed && press_value_unit < 0.25) {
                     motor_task_.playHaptic(false);
                     ble_task_.updateScale(false);

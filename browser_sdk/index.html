@@ -209,7 +209,7 @@
             [
                 32,
                 0,
-                8.225806452,
+                8.225806452 * PI / 180,
                 2,
                 1,
                 1.1,
@@ -262,29 +262,34 @@
         $('#profileconfig_send').on('click', async event => {
             let msg = $('#profile_message')
     
-            cmd = "SWN"
             elem = $(event.target)
             elem.addClass('processing')
     
             msg.html("Sending config to SmartKnob")
-    
-            let value = sk.stringToBuffer("CMD|"+cmd)
 
-            let res = await sk.sendWrite(cmd, value);
+            profile = [
+                $('[name="pos_num"]').val().replace(",","."),
+                $('[name="pos_start"]').val().replace(",","."),
+                $('[name="pos_rad"]').val().replace(",","."),
+                $('[name="strenght_detent"]').val().replace(",","."),
+                $('[name="strenght_endpoint"]').val().replace(",","."),
+                $('[name="snap_point"]').val().replace(",","."),
+                "Tere", //$('[name="new_profile_name"]').val().replace("/,","-")
+            ]
 
-            // try{
-            //     console.log('Sending command: '+cmd+'...');
-            //     await serviceCharacteristic.writeValue(value);
-    
-            //     msg.html("Sending done, waiting back")
-            //     elem.removeClass('processing')
-            //     console.log('> Command sent: '+cmd);
-            // }
-            // catch(error){
-            //     msg.html("Sending error: "+error)
-            //     console.log('> Command BT error: '+error);
-            //     isDisconnected(message_tryagain, "error")
-            // }
+            console.log('Sending profile: ...');
+            let res = await sk.sendProfile(profile);
+
+            if(res == true){
+                msg.html("Sending done")
+                elem.removeClass('processing')
+                console.log('> Profile sent')
+            }
+            else{
+                console.log(res)
+                msg.html("Sending error: "+res.error)
+                console.log('> Command BT error: '+res.error)
+            }
         })
         
     

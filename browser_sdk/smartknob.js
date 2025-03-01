@@ -182,7 +182,7 @@ const SmartKnob = class {
         for(let i=4; i<buffer.byteLength; i++){
             value += (i>4) ? buffer.getUint8(i)*(256*(i-4)) : buffer.getUint8(i) 
         }
-        console.log(buffer, buffer.byteLength, response, value)
+        // console.log(buffer, buffer.byteLength, response, value)
 
         switch(buffer.getUint8(0)){
             case 1:
@@ -216,22 +216,20 @@ const SmartKnob = class {
         }
     }
 
+    async sendProfile(profile){
+        return await this.sendWrite("SP", profile.join(","))
+    }
+
     async sendWrite(cmd, value){
-        let msg = $('#profile_message')
-
-        try{
-            console.log('Sending command: '+cmd+'...');
-            await this.serviceCharacteristics[0].writeValue(value);
-
-            msg.html("Sending done, waiting back")
-            elem.removeClass('processing')
-            console.log('> Command sent: '+cmd);
-        }
-        catch(error){
-            msg.html("Sending error: "+error)
-            console.log('> Command BT error: '+error);
-            this.isDisconnected(message_tryagain, "error")
-        }
+        // try{
+            let msg = sk.stringToBuffer(cmd+"+"+value)
+            await this.serviceCharacteristics[0].writeValue(msg)
+            return true;
+        // }
+        // catch(error){
+        //     //this.eventDisconnected(this.debug_messages.tryagain, "error")
+        //     return {'error': error, 'message': this.debug_messages.tryagain}
+        // }
     }
 
     // handleCombinedNotifications(event) {

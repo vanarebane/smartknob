@@ -2,6 +2,11 @@
 
 #if SK_BLE
 
+// #include <iostream>
+// #include <vector>
+#include <cstring> // Include for std::strncpy, std::strtok, and std::strncmp
+// #include <cstdlib> // Include for std::atoi and std::atof
+
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -41,6 +46,8 @@ class BLETask : public Task<BLETask> {
         void updateScale(bool press_value_state);
         void updateButton(bool button_state);
         void updateLux(float new_lux_value);
+        bool hasNewMotorConfig();
+        PB_SmartKnobConfig getMotorConfig();
 
         QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
@@ -74,6 +81,7 @@ class BLETask : public Task<BLETask> {
         uint32_t num_positions;
         float lux_value_;
         float lux_value_old;
+        PB_SmartKnobConfig new_motor_config;
 
         QueueHandle_t knob_state_queue_;
 
@@ -82,6 +90,7 @@ class BLETask : public Task<BLETask> {
 
         void sendNotify(int, bool);
         void sendNotify(int, uint32_t);
+        bool parseInput(const char* input, PB_SmartKnobConfig& data);
 
         void publish(const PB_SmartKnobState& state);
         // void calibrate();

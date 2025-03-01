@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartKnow web BT interface</title>
+    <script src="jquery.js"></script>
+    <script src="smartknob.js"></script>
+    
+    <link href="style.css" rel="stylesheet" >
+</head>
+<body>
+    
+    <button id="request">Connect BT Device</button>
+    <br>
+
+    <div id="log"></div>
+
+
+    <div class="action_btns disabled">
+        <!-- <button id="power">Power</button><br> -->
+        <div class="profilegroup">
+            <label for="position_cur" class="pwroff">Position:</label>
+            <input style="text-align: right;" name="position_cur" value="0" type="text" disabled>
+            <span style="text-align: center; width: 10px;" >/</span>
+            <input name="position_set" value="0" type="text" disabled>
+        </div>
+        <div class="profilegroup">
+            <label for="light_raw" class="pwroff">Light:</label>
+            <input style="text-align: right;" name="light_raw" value="0" type="text" disabled>
+            <span>millilux</span>
+        </div>
+        <div class="profilegroup">
+            <label for="strain" class="pwroff">Scale:</label>
+            <button style="width: 100%; text-align: center;" class="statebtns" id="strain_push">Push</button>
+            <input style="width: 100%; text-align: right;" name="strain_raw" value="0" type="number" disabled>
+            <span>raw</span>
+        </div>
+        <div class="profilegroup">
+            <label for="knob_button" class="pwroff">Button:</label>
+            <button style="width: 100%; text-align: center;" class="statebtns" id="knob_button">Push</button>
+        </div>
+
+        <div class="profilegroup">
+            <label for="profile_name" class="pwroff">Profile:</label>
+            <input style="width: 100%;" name="profile_name" value="" type="text" disabled>
+        </div>
+               
+        <div class="profilegroup">
+            <button id="setactive" class="statebtns" data-cmd="STA">Red</button>
+            <button id="setmobile" class="statebtns" data-cmd="STM">Green</button>
+            <button id="setlocked" class="statebtns" data-cmd="STL">Blue</button>
+        </div>
+        <button id="profileconfig" >SmartKnob Config</button><br>
+        <div class="profileconfig_dialog">
+            
+            <div class="profilegroup">
+                <label for="preset_profile">Preset profiles:</label><select name="preset_profile"></select>
+            </div>
+            <div class="profilegroup">
+                <label for="pos_num">Num. positions:</label><input name="pos_num" value="32" type="number">
+            </div>
+            <div class="profilegroup">
+                <label for="pos_start">Start position:</label><input name="pos_start" value="0" type="number">
+            </div>
+            <div class="profilegroup">
+                <label for="pos_rad">Position with radians:</label><input name="pos_rad" value="8.2258" type="number" min="1" max="60">
+            </div>
+            <div class="profilegroup">
+                <label for="strenght_detent">Detent strenght:</label><input name="strenght_detent" value="2" type="number" min="0" max="2">
+            </div>
+            <div class="profilegroup">
+                <label for="strenght_endpoint">Endstop strenght:</label><input name="strenght_endpoint" value="1" type="number" min="0" max="1">
+            </div>
+            <div class="profilegroup">
+                <label for="snap_point">Snap point (1.1 / 0.5):</label><input name="snap_point" value="1.1" type="number" min="0.5" max="1.1">
+            </div>
+            <div class="profilegroup">
+                <label for="new_profile_name">Profile name:</label><input name="new_profile_name" value="Coarse values / Strong detents" type="text">
+            </div>
+            <button id="profileconfig_send">Send</button>
+            
+            <div class="profilegroup">
+                <span id="profile_message">...</span>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+
+        $ = jQuery
+
+        let sk = new SmartKnob()
+        
+        $('#request').on('click', async event => {sk.connect()});
+
+        // Position notifications
+        sk.addListener('handlePositionNotifications', (e)=>{ 
+            $('[name="position_cur"]').val(e.detail.value)
+        })
+        // Position set value notifications
+        sk.addListener('handlePositionSetNotifications', (e)=>{ 
+            $('[name="position_set"]').val(e.detail.value)
+        })
+
+        // Lux reading notification / 1 per sec
+        sk.addListener('handleLuxNotifications', (e)=>{ 
+            $('[name="light_raw"]').val(e.detail.value)
+        })
+
+        // Scale push notifications 
+        sk.addListener('handlePushNotifications', (e)=>{ 
+            if(e.detail.value){
+                $('#strain_push').addClass('active')
+            }
+            else{
+                $('#strain_push').removeClass('active')
+            }
+        })
+        // Scale reading notifications / 1 per sec
+        sk.addListener('handleScaleNotifications', (e)=>{ 
+            $('[name="strain_raw"]').val(e.detail.value)
+        })
+
+        // Button notification
+        sk.addListener('handleButtonNotifications', (e)=>{ 
+            if(e.detail.value){
+                $('#knob_button').addClass('active')
+            }
+            else{
+                $('#knob_button').removeClass('active')
+            }
+        })
+        
+        
+    
+        /////////////////////////////////////////////////
+        /// PROCESSOR
+
+
+        let PI = Math.PI;
+    
+
+        let preset_profiles = [
+            [
+                0,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Unbounded\nNo detents",
+            ],
+            [
+                11,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Bounded 0-10\nNo detents",
+            ],
+            [
+                73,
+                0,
+                10 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Multi-rev\nNo detents",
+            ],
+            [
+                2,
+                0,
+                60 * PI / 180,
+                1,
+                1,
+                0.55, // Note the snap point is slightly past the midpoint (0.5); compare to normal detents which use a snap point *past* the next value (i.e. > 1)
+                "On/off\nStrong detent",
+            ],
+            [
+                1,
+                0,
+                60 * PI / 180,
+                0.01,
+                0.6,
+                1.1,
+                "Return-to-center",
+            ],
+            [
+                256,
+                127,
+                1 * PI / 180,
+                0,
+                1,
+                1.1,
+                "Fine values\nNo detents",
+            ],
+            [
+                256,
+                127,
+                1 * PI / 180,
+                1,
+                1,
+                1.1,
+                "Fine values\nWith detents",
+            ],
+            [
+                32,
+                0,
+                8.225806452 * PI / 180,
+                2,
+                1,
+                1.1,
+                "Coarse values\nStrong detents",
+            ],
+            [
+                32,
+                0,
+                8.225806452 * PI / 180,
+                0.2,
+                1,
+                1.1,
+                "Coarse values\nWeak detents",
+            ]
+        ]
+
+        preset_profiles.forEach(function(valuearr, i){
+            $('<option value="'+i+'">'+valuearr[6].replace("\n", " / ")+'</option>').appendTo('[name="preset_profile"]')
+        })
+        $('[name="preset_profile"]').on('change', (e)=>{
+            console.log(preset_profiles[e.target.value])
+            let v = preset_profiles[e.target.value]
+            $('[name="pos_num"]').val(v[0])
+            $('[name="pos_start"]').val(v[1])
+            $('[name="pos_rad"]').val(v[2]/PI*180)
+            $('[name="strenght_detent"]').val(v[3])
+            $('[name="strenght_endpoint"]').val(v[4])
+            $('[name="snap_point"]').val(v[5])
+            $('[name="new_profile_name"]').val(v[6].replace("\n", " / "))
+        })
+    
+    
+        var btn_read = async function(number){
+            console.log("Readdoor "+number)
+            // await toolBoxBT.request();
+            if(!bt.connected)
+                await bt.connect();
+    
+            await bt.readDoor();
+            console.log("   Done")
+        }
+    
+    
+        $('#profileconfig').on('click', async event => {
+            // OPEN CONFIG WINDOW
+            $('.profileconfig_dialog').toggleClass("open")
+        })
+    
+    
+        $('#profileconfig_send').on('click', async event => {
+            let msg = $('#profile_message')
+    
+            elem = $(event.target)
+            elem.addClass('processing')
+    
+            msg.html("Sending config to SmartKnob")
+
+            profile = [
+                $('[name="pos_num"]').val().replace(",","."),
+                $('[name="pos_start"]').val().replace(",","."),
+                $('[name="pos_rad"]').val().replace(",","."),
+                $('[name="strenght_detent"]').val().replace(",","."),
+                $('[name="strenght_endpoint"]').val().replace(",","."),
+                $('[name="snap_point"]').val().replace(",","."),
+                "Tere", //$('[name="new_profile_name"]').val().replace("/,","-")
+            ]
+
+            console.log('Sending profile: ...');
+            let res = await sk.sendProfile(profile);
+
+            if(res == true){
+                msg.html("Sending done")
+                elem.removeClass('processing')
+                console.log('> Profile sent')
+            }
+            else{
+                console.log(res)
+                msg.html("Sending error: "+res.error)
+                console.log('> Command BT error: '+res.error)
+            }
+        })
+        
+    
+        
+        /////////////////////////////////////////////////
+        /// GUI MAGIX 4 MEATBAGS
+        
+        
+        sk.addListener('isConnected', (e)=>{ 
+            connectBtn(e.detail.message, e.detail.type)
+            $('.action_btns').removeClass('disabled')
+        })
+
+        sk.addListener('isDisconnected', (e)=>{
+            connectBtn(e.detail.message, e.detail.type)
+            $('[data-door]').removeClass("open error processing")
+            $('.action_btns').addClass('disabled')
+            $('.action_btns button').removeClass("open error processing closed")
+            $('.action_btns [data-door]').addClass('pwroff')
+        })
+    
+        var connectBtn = function(message, style=""){
+            var elem = $("#request")
+            elem.removeClass("error success processing")
+            if(style !== ""){
+                elem.addClass(style);
+            }
+            elem.html(message)
+        }
+        
+        var processError = function(error){
+            switch(error){
+                case "Device is not connected.":
+                    connectBtn("Not connected. Click here", "error")
+                    alert(error)
+                    break;
+                default:
+                    console.log(error)
+                    break;
+            }
+        }
+    
+        setInterval(()=>{
+            let arr = console.history
+            let content = ""
+            for(a in arr){
+                for(x in arr[a].arguments){
+                    if(typeof(arr[a].arguments[x]) == "object"){
+                        for(y in arr[a].arguments[x]){
+                            content += " __"+y+": "+arr[a].arguments[x][y]+"<br>"
+                        }
+                    }
+                    else{
+                        content += arr[a].arguments[x]+"<br>"
+                    }
+                }
+            }
+            $('#log').html(content)
+        },1000)
+    
+    
+
+
+    </script>
+</body>
+</html>

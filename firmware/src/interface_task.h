@@ -6,6 +6,7 @@
 #include "display_task.h"
 #include "logger.h"
 #include "motor_task.h"
+#include "network/ble_task.h"
 #include "serial/serial_protocol_plaintext.h"
 #include "serial/serial_protocol_protobuf.h"
 #include "serial/uart_stream.h"
@@ -15,7 +16,7 @@ class InterfaceTask : public Task<InterfaceTask>, public Logger {
     friend class Task<InterfaceTask>; // Allow base Task to invoke protected run()
 
     public:
-        InterfaceTask(const uint8_t task_core, MotorTask& motor_task, DisplayTask* display_task);
+        InterfaceTask(const uint8_t task_core, MotorTask& motor_task, BLETask& ble_task, DisplayTask* display_task);
         virtual ~InterfaceTask() {};
 
         void log(const char* msg) override;
@@ -26,6 +27,7 @@ class InterfaceTask : public Task<InterfaceTask>, public Logger {
     private:
         UartStream stream_;
         MotorTask& motor_task_;
+        BLETask& ble_task_;
         DisplayTask* display_task_;
         char buf_[64];
 

@@ -119,15 +119,20 @@ static PB_SmartKnobConfig configs[] = {
     },
 };
 
-InterfaceTask::InterfaceTask(const uint8_t task_core, MotorTask& motor_task, DisplayTask* display_task) : 
+InterfaceTask::InterfaceTask(const uint8_t task_core, MotorTask& motor_task, BLETask& ble_task, DisplayTask* display_task) : 
         Task("Interface", 3000, 1, task_core),
         stream_(),
         motor_task_(motor_task),
+        ble_task_(ble_task),
         display_task_(display_task),
         plaintext_protocol_(stream_, motor_task_),
         proto_protocol_(stream_, motor_task_) {
     #if SK_DISPLAY
         assert(display_task != nullptr);
+    #endif
+
+    #if PIN_BUTTON_NEXT
+        pinMode(PIN_BUTTON_NEXT, INPUT_PULLUP);
     #endif
 
     log_queue_ = xQueueCreate(10, sizeof(std::string *));
@@ -246,18 +251,42 @@ void InterfaceTask::updateHardware() {
         static uint32_t last_als;
         if (millis() - last_als > 1000) {
             snprintf(buf_, sizeof(buf_), "millilux: %.2f", lux*1000);
+            ble_task_.updateLux(lux*1000);
             log(buf_);
             last_als = millis();
+        }
+    #endif
+
+    #if PIN_BUTTON_NEXT
+        if (digitalRead(PIN_BUTTON_NEXT) == HIGH) {
+            ble_task_.updateButton(false);
+        }
+        else{
+            ble_task_.updateButton(true);
+        }
+    #endif
+
+    
+    #if SK_BLE
+        if(ble_task_.hasNewMotorConfig()){
+            PB_SmartKnobConfig config = ble_task_.getMotorConfig();
+            
+            char buf_[256];
+            snprintf(buf_, sizeof(buf_), "Changing config from BT -- %s", config.text);
+            log(buf_);
+            motor_task_.setConfig(config);
         }
     #endif
 
     #if SK_STRAIN
         if (scale.wait_ready_timeout(100)) {
             int32_t reading = scale.read();
+            
 
             static uint32_t last_reading_display;
             if (millis() - last_reading_display > 1000) {
                 snprintf(buf_, sizeof(buf_), "HX711 reading: %d", reading);
+                ble_task_.updateScale(reading);
                 log(buf_);
                 last_reading_display = millis();
             }
@@ -273,10 +302,12 @@ void InterfaceTask::updateHardware() {
                 static bool pressed;
                 if (!pressed && press_value_unit > 0.75) {
                     motor_task_.playHaptic(true);
+                    ble_task_.updateScale(true);
                     pressed = true;
-                    changeConfig(true);
+                    // changeConfig(true);
                 } else if (pressed && press_value_unit < 0.25) {
                     motor_task_.playHaptic(false);
+                    ble_task_.updateScale(false);
                     pressed = false;
                 }
             }

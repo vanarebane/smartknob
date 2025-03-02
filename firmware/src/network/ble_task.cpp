@@ -24,13 +24,13 @@ class KnobCharacteristicCallBack : public BLECharacteristicCallbacks{
 public:
     //This method not called
     void onWrite(BLECharacteristic *pCharacteristic) override{
+        ble_quiet_please = true;
         // std::string xcc = pCharacteristic->getValue();
         // // uint8_t* rxValue = pCharacteristic->getData();
         // Serial.print("value received = ");
         // Serial.println((char*)&xcc);
-        ble_quiet_please = true;
 
-        char* rxValue = reinterpret_cast<char*>(pCharacteristic->getData());
+        newMotorConfig_ = reinterpret_cast<char*>(pCharacteristic->getData());
         
         // char buf_[256];
         // snprintf(buf_, sizeof(buf_), "value received from BT = %s", val);
@@ -38,15 +38,15 @@ public:
 
         log_i("data is received");
 
+        // delay(50);
         hasNewMotorConfig_ = true;
         newMotorConfigProccessed = false;
-        newMotorConfig_ = rxValue;
-        delay(100);
+        // delay(50);
         ble_quiet_please = false;
     }
 };
 
-BLETask::BLETask(const uint8_t task_core) : Task("BLE", 2700, 1, task_core) {
+BLETask::BLETask(const uint8_t task_core) : Task("BLE", 3000, 1, task_core) {
     queue_ = xQueueCreate(5, sizeof(Message));
     assert(queue_ != NULL);
     
@@ -67,8 +67,14 @@ void BLETask::run() {
     // See the following for generating UUIDs:
     // https://www.uuidgenerator.net/
 
-    #define SERVICE_UUID        "0000340f-0000-1000-8000-00805f9b34fb"
-    #define CHARACTERISTIC_UUID   "602f75a0-697d-4690-8dd5-fa52781446d1"
+    // #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+    // #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+    // #define SERVICE_UUID        "00001235-0000-1000-8000-00805f9b34fb"
+    // #define CHARACTERISTIC_UUID   "00004568-0000-1000-8000-00805f9b34fb"
+    
+    #define SERVICE_UUID           "00000001-0000-1000-8000-00805f9b34fb" // UART service UUID
+    #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E" // Writes
+    #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E" // Notifications
 
     // Create the BLE Device
     BLEDevice::init("SmartKnob_0123");
@@ -81,59 +87,48 @@ void BLETask::run() {
     // Create the BLE Service
     BLEService *pService = pServer->createService(SERVICE_UUID);
 
-    // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
 
-    // Create a BLE Characteristic
-    pCharacteristic = pService->createCharacteristic(
-            CHARACTERISTIC_UUID,
-            BLECharacteristic::PROPERTY_READ   |
-            BLECharacteristic::PROPERTY_WRITE  |
-            BLECharacteristic::PROPERTY_NOTIFY |
-            BLECharacteristic::PROPERTY_INDICATE
-        );
-        
-    pCharacteristic->setCallbacks(new KnobCharacteristicCallBack());
-    // Create a BLE Descriptor
-    pCharacteristic->addDescriptor(new BLE2902());
+    // Create TX BLE Characteristic
+    pTxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_TX,
+        BLECharacteristic::PROPERTY_NOTIFY
+    );
+    pTxCharacteristic->addDescriptor(new BLE2902());
+
+
+    // Create RX BLE Characteristic
+    BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_RX,
+        BLECharacteristic::PROPERTY_WRITE
+    );
+    pRxCharacteristic->setCallbacks(new KnobCharacteristicCallBack());
 
 
     // Start the service
     pService->start();
-
+        
     // Start advertising
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(false);
-    pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
-    BLEDevice::startAdvertising();
+    pServer->getAdvertising()->start();
+
+    // // Start advertising
+    // BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    // pAdvertising->addServiceUUID(SERVICE_UUID);
+    // pAdvertising->setScanResponse(true);
+    // pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
+    // pAdvertising->setMinPreferred(0x12);
+    // BLEDevice::startAdvertising();
 
     PB_SmartKnobState state;
 
     while (1) {
-        
-        // disconnecting
-        if (!deviceConnected && oldDeviceConnected) {
-            delay(500); // give the bluetooth stack the chance to get things ready
-            pServer->startAdvertising(); // restart advertising
-            log("BLE start advertising");
-            oldDeviceConnected = deviceConnected;
-        }
-        // connecting
-        if (deviceConnected && !oldDeviceConnected) {
-            // do stuff here on connecting
-            oldDeviceConnected = deviceConnected;
-            //delay(500);
-            //pCharacteristic->notify(); // DOES NOT WORK
-        }
 
-        // Old method here, skip everything if no update from knob
-        if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
-            continue;
-        }
+        if (deviceConnected && !ble_quiet_please) { 
+                   
+            // Old method here, skip everything if no update from knob
+            if (xQueueReceive(knob_state_queue_, &state, portMAX_DELAY) == pdFALSE) {
+                continue;
+            }
 
-        // notify changed value
-        if (deviceConnected && !ble_quiet_please) {
-                        
             if(button_state_old != button_state_){
                 button_state_old = button_state_;
                 sendNotify(1, button_state_old);
@@ -163,8 +158,21 @@ void BLETask::run() {
             //     lux_value_old = lux_value_;
             //     sendNotify(6, (uint32_t)&lux_value_old);
             // }
-            
         }
+
+        // disconnecting
+        if (!deviceConnected && oldDeviceConnected) {
+            delay(500); // give the bluetooth stack the chance to get things ready
+            pServer->startAdvertising(); // restart advertising
+            log("BLE start advertising");
+            oldDeviceConnected = deviceConnected;
+        }
+        // connecting
+        if (deviceConnected && !oldDeviceConnected) {
+            // do stuff here on connecting
+            oldDeviceConnected = deviceConnected;
+        }
+
 
         // // Check queue for pending requests from other tasks
         // Message message;
@@ -190,27 +198,25 @@ void BLETask::run() {
 }
 
 void BLETask::sendNotify(int key, bool data){
-	uint8_t temp[2];
-	temp[0] = key;
-    if(data) temp[1] = 1;
-    else temp[1] = 0;
-    pCharacteristic->setValue((uint8_t*)&temp, 2);
-    pCharacteristic->notify();
-    delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+	temp8[0] = key;
+    if(data) temp8[1] = 1;
+    else temp8[1] = 0;
+    pTxCharacteristic->setValue((uint8_t*)&temp8, 2);
+    pTxCharacteristic->notify();
+    delay(ble_delay); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }
 void BLETask::sendNotify(int key, uint32_t data32){
-	uint32_t temp[8];
-	temp[0] = key;
-	temp[1] = data32;
-	temp[2] = data32 >> 8;
-	temp[3] = data32 >> 16;
-	temp[4] = data32 >> 24;
-	temp[5] = data32 >> 32;
-	temp[6] = data32 >> 40;
-	temp[7] = data32 >> 48;
-    pCharacteristic->setValue((uint8_t*)&temp,8);
-    pCharacteristic->notify();
-    delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+	temp32[0] = key;
+	temp32[1] = data32;
+	temp32[2] = data32 >> 8;
+	temp32[3] = data32 >> 16;
+	temp32[4] = data32 >> 24;
+	temp32[5] = data32 >> 32;
+	temp32[6] = data32 >> 40;
+	temp32[7] = data32 >> 48;
+    pTxCharacteristic->setValue((uint8_t*)&temp32,8);
+    pTxCharacteristic->notify();
+    delay(ble_delay); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }
 
 void BLETask::updateScale(int32_t new_press_value_unit){

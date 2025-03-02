@@ -153,8 +153,9 @@ void InterfaceTask::run() {
         Wire.begin(PIN_SDA, PIN_SCL);
         Wire.setClock(400000);
     #endif
+    
     #if SK_STRAIN
-        scale.begin(38, 2);
+        scale.begin(PIN_STRAIN_DO, PIN_STRAIN_SCK);
     #endif
 
     #if SK_ALS
@@ -281,7 +282,6 @@ void InterfaceTask::updateHardware() {
     #if SK_STRAIN
         if (scale.wait_ready_timeout(100)) {
             int32_t reading = scale.read();
-            
 
             static uint32_t last_reading_display;
             if (millis() - last_reading_display > 1000) {
@@ -292,8 +292,8 @@ void InterfaceTask::updateHardware() {
             }
 
             // TODO: calibrate and track (long term moving average) zero point (lower); allow calibration of set point offset
-            const int32_t lower = 950000;
-            const int32_t upper = 1800000;
+            const int32_t lower = -400000;
+            const int32_t upper = 500000; // original value: 1800000
             // Ignore readings that are way out of expected bounds
             if (reading >= lower - (upper - lower) && reading < upper + (upper - lower)*2) {
                 long value = CLAMP(reading, lower, upper);

@@ -9,11 +9,11 @@
 #endif
 #include "util.h"
 
-
+ 
 // #### 
 // Hardware-specific motor calibration constants.
 // Run calibration once at startup, then update these constants with the calibration results.
-static const float ZERO_ELECTRICAL_OFFSET = 4.7;
+static const float ZERO_ELECTRICAL_OFFSET = 4.08; // 6.5; //6.21; 
 static const Direction FOC_DIRECTION = Direction::CW;
 static const int MOTOR_POLE_PAIRS = 7;
 
@@ -38,7 +38,7 @@ static const float IDLE_CORRECTION_MAX_ANGLE_RAD = 5 * PI / 180;
 static const float IDLE_CORRECTION_RATE_ALPHA = 0.0005;
 
 
-MotorTask::MotorTask(const uint8_t task_core) : Task("Motor", 2500, 1, task_core) {
+MotorTask::MotorTask(const uint8_t task_core) : Task("Motor", 4000, 1, task_core) {
     queue_ = xQueueCreate(5, sizeof(Command));
     assert(queue_ != NULL);
 }

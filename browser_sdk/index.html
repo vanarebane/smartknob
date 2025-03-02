@@ -51,7 +51,7 @@
             <button id="setmobile" class="statebtns" data-cmd="STM">Green</button>
             <button id="setlocked" class="statebtns" data-cmd="STL">Blue</button>
         </div>
-        <button id="profileconfig" >SmartKnob Config</button><br>
+        <button id="profileconfig" >SmartKnob Profile</button><br>
         <div class="profileconfig_dialog">
             
             <div class="profilegroup">
@@ -286,7 +286,6 @@
                 console.log('> Profile sent')
             }
             else{
-                console.log(res)
                 msg.html("Sending error: "+res.error)
                 console.log('> Command BT error: '+res.error)
             }

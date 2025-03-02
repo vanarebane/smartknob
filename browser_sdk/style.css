@@ -150,3 +150,9 @@ body{
     background: #fff;
     display: block;
 }
+
+.changelog{
+    font-size: 0.8em;
+    color: #999;
+    padding:100px 100px 20px;
+}

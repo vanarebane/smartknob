@@ -29,6 +29,7 @@
 const SmartKnob = class {
     debug = true;
 
+    // Find devices, filtered by this prefix
     ble_nameprefix = "SmartKnob_";
 
     ble_connected = false;
@@ -43,6 +44,7 @@ const SmartKnob = class {
 
     serviceUuid = 0x0001; // Primary service
 
+    // As values here, but the code accepts first UUID that has notify and write property 
     TX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; // Notify
     RX_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; // Write
 
@@ -51,6 +53,7 @@ const SmartKnob = class {
 
     useSingleCharacteristics = true;
 
+    // Not used in this demo
     characteristicUuids = {
         'ambient': {
             'uuid': "0000420f-0000-1000-8000-00805f9b34fb",
@@ -83,10 +86,11 @@ const SmartKnob = class {
     };
 
     constructor() {
-      window.addEventListener("onunload", this.disconnect());
-     }
+        window.addEventListener("onunload", this.disconnect());
+    }
 
-     async connect() {
+    // Function must be called from user interaction. Cannot be called directly.
+    async connect() {
         navigator.bluetooth.addEventListener(
             "availabilitychanged",
             this.onavailabilitychanged
@@ -102,6 +106,8 @@ const SmartKnob = class {
                     filters: [{ namePrefix: this.ble_nameprefix }],
                     optionalServices: [this.serviceUuid],
             });
+
+            device.addEventListener('gattserverdisconnected', this.eventDisconnected);
 
             this.log("Connecting to GATT Server...");
             const server = await device.gatt.connect();
@@ -134,16 +140,17 @@ const SmartKnob = class {
                     console.log(this.write_rx_Characteristics);
                 }
             }
-
+            
             this.eventConnected();
         } 
         catch (error) {
             // NetworkError: GATT Server is disconnected. Cannot retrieve services. (Re)connect first with `device.gatt.connect`.
             this.log("! BT Connection error" + error);
-            this.eventDisconnected(this.debug_messages.tryagain, "error");
+            this.eventDisconnected(this.debug_messages.disconnected, "error");
         }
     }
 
+    // Called by event when BT disconnects
     disconnect() {
         if (this.serviceCharacteristic) {
             navigator.bluetooth.removeEventListener("availabilitychanged");
@@ -172,68 +179,72 @@ const SmartKnob = class {
         }
     }
 
-  handleCombinedNotifications(event) {
-    let buffer = event.target.value;
-    let response = bufferToString(buffer);
+    // Handle notifications that are keyd by the first byte
+    handleCombinedNotifications(event) {
+        let buffer = event.target.value;
 
-    let value = 0;
-    for (let i = 4; i < buffer.byteLength; i++) {
-        value += i > 4 ? buffer.getUint8(i) * (256 * (i - 4)) : buffer.getUint8(i);
-    }
-    console.log(buffer, buffer.byteLength, response, value);
-
-    switch (buffer.getUint8(0)) {
-        case 1:
-            document.dispatchEvent(new CustomEvent("handleButtonNotifications", {
-                detail: { value: buffer.getUint8(1) == 1 ? true : false },
-            }));
-            break;
-
-        case 2:
-            document.dispatchEvent(new CustomEvent("handleScaleNotifications", {
-                detail: { value: parseFloat(value) },
-            }));
-            break;
-
-        case 3:
-            document.dispatchEvent(new CustomEvent("handlePushNotifications", {
-                detail: { value: buffer.getUint8(1) == 1 ? true : false },
-            }));
-            break;
-
-        case 4:
-            value =
-            buffer.getUint8(4) +
-            buffer.getUint8(5) * 256 +
-            buffer.getUint8(6) +
-            buffer.getUint8(7) * 256;
-            if (buffer.getUint8(6) > 0) {
-                // if last two last bits have any value, the value is in negative
-                value = value - 131071;
-            }
-            document.dispatchEvent(new CustomEvent("handlePositionNotifications", {
-                detail: { value: parseFloat(value) },
-            }));
-            break;
-
-        case 5:
-            document.dispatchEvent(new CustomEvent("handlePositionSetNotifications", {
-                detail: { value: parseFloat(value - 1) },
-            }));
-            break;
-
-        case 6:
-            document.dispatchEvent(new CustomEvent("handleLuxNotifications", {
-                detail: { value: parseFloat(value - 1) },
-            }));
-            break;
+        let value = 0;
+        for (let i = 4; i < buffer.byteLength; i++) {
+            value += i > 4 ? buffer.getUint8(i) * (256 * (i - 4)) : buffer.getUint8(i);
         }
+
+        //let response = bufferToString(buffer);
+        //console.log(buffer, buffer.byteLength, response, value);
+
+        switch (buffer.getUint8(0)) { // First key byte for the type of value
+            case 1:
+                document.dispatchEvent(new CustomEvent("handleButtonNotifications", {
+                    detail: { value: buffer.getUint8(1) == 1 ? true : false },
+                }));
+                break;
+
+            case 2:
+                document.dispatchEvent(new CustomEvent("handleScaleNotifications", {
+                    detail: { value: parseFloat(value) },
+                }));
+                break;
+
+            case 3:
+                document.dispatchEvent(new CustomEvent("handlePushNotifications", {
+                    detail: { value: buffer.getUint8(1) == 1 ? true : false },
+                }));
+                break;
+
+            case 4:
+                value =
+                buffer.getUint8(4) +
+                buffer.getUint8(5) * 256 +
+                buffer.getUint8(6) +
+                buffer.getUint8(7) * 256;
+                if (buffer.getUint8(6) > 0) {
+                    // if last two last bits have any value, the value is in negative
+                    value = value - 131071;
+                }
+                document.dispatchEvent(new CustomEvent("handlePositionNotifications", {
+                    detail: { value: parseFloat(value) },
+                }));
+                break;
+
+            case 5:
+                document.dispatchEvent(new CustomEvent("handlePositionSetNotifications", {
+                    detail: { value: parseFloat(value - 1) },
+                }));
+                break;
+
+            case 6:
+                document.dispatchEvent(new CustomEvent("handleLuxNotifications", {
+                    detail: { value: parseFloat(value - 1) },
+                }));
+                break;
+            }
     }
 
+    // Prepares write command for profile specific
     async sendProfile(profile) {
         return await this.sendWrite("SP", profile.join(","));
     }
 
+    // Sends write command to BT
     async sendWrite(cmd, value) {
         // try{
         let msg = sk.stringToBuffer(cmd + "+" + value);
@@ -244,8 +255,9 @@ const SmartKnob = class {
             this.eventDisconnected()
             return false;
         }
-     }
+    }
 
+    // Handle notifications separated by UUID
     handleNotifications(event) {
         console.log(event.currentTarget.uuid);
 
@@ -300,13 +312,17 @@ const SmartKnob = class {
         this.log("Availabiliy changed: " + event.value);
     }
 
+    // When BT connects, this function is called that dispatches the isDisconnected
     eventConnected() {
         console.log("connected");
         this.ble_connected = true;
         document.dispatchEvent(new CustomEvent("isConnected", {detail: { message: this.debug_messages.connected, type: "success" },}));
     }
-    eventDisconnected(msg = this.debug_messages.disconnected, cls = "") {
+
+    // When BT disconnects, this function is called that dispatches the isDisconnected
+    eventDisconnected(msg=this.debug_messages.disconnected, cls = "") {
         this.ble_connected = false;
+        msg = (typeof msg !== "string") ? "Disconnected" : msg;
         document.dispatchEvent(new CustomEvent("isDisconnected", { detail: { message: msg, type: cls } }));
     }
 
@@ -322,6 +338,9 @@ const SmartKnob = class {
         document.removeEventListener(eventName, handler);
         // this.log(`${element} is removed from listening for ${eventName}`);
     }
+
+
+    // HELPER FUNCTIONS
 
     stringToBuffer(str) {
         let Len = str.length,

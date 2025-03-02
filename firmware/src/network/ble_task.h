@@ -60,7 +60,7 @@ class BLETask : public Task<BLETask> {
         Logger* logger_;
         std::vector<QueueHandle_t> listeners_;
 
-        int ble_delay = 3;
+        int ble_delay = 5;
 
         // BLE Setup
         BLEServer* pServer = NULL;

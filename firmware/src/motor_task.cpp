@@ -13,21 +13,23 @@
 // #### 
 // Hardware-specific motor calibration constants.
 // Run calibration once at startup, then update these constants with the calibration results.
-static const float ZERO_ELECTRICAL_OFFSET = 4.08; // 6.5; //6.21; 
+
+// // Aliexpress motor + Tarmo board
+// static const float ZERO_ELECTRICAL_OFFSET = 6.5; // 6.5; //6.21; 
+// static const Direction FOC_DIRECTION = Direction::CW;
+
+// Aliexpress motor + Mikk board
+static const float ZERO_ELECTRICAL_OFFSET = 6.7; // Perfection is somewhere between 6.4 ~ 6.7
 static const Direction FOC_DIRECTION = Direction::CW;
+
+// SparkFun motor + Mikk board
+// static const float ZERO_ELECTRICAL_OFFSET = 6.22;  
+// static const Direction FOC_DIRECTION = Direction::CCW;
+
 static const int MOTOR_POLE_PAIRS = 7;
 
 
-// static const float ZERO_ELECTRICAL_OFFSET = 0.65;
-// static const Direction FOC_DIRECTION = Direction::CW;
-// static const int MOTOR_POLE_PAIRS = 7;
-
-// static const float ZERO_ELECTRICAL_OFFSET = 3.42; // Sweet spot 0.65
-// static const Direction FOC_DIRECTION = Direction::CCW;
-// static const int MOTOR_POLE_PAIRS = 7;
 // ####
-
-
 static const float DEAD_ZONE_DETENT_PERCENT = 0.2;
 static const float DEAD_ZONE_RAD = 1 * _PI / 180;
 

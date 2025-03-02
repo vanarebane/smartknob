@@ -86,6 +86,34 @@
             
         </div>
     </div>
+    
+    <div>
+        <h2>Changelog</h2>
+        <h3>2025.03.02</h3>
+        <ul>
+            <li>BlueTooh profile sending is perfect - can now spam profile updates without problems</li>
+            <li>Motor config problems - The calibraton does not find the perfect <b>Zero Electrical Offset</b>, calibration gives every time some value between 2~7. Perfect value is somewhere 6.4 ~ 6.7. Symptoms of bad motor config - motor is not centered and will loose power between poles. When overturned, can feel stuck (7 points) or start spinning endlessly.</li>
+            <li>Scale calibrartion - Currently hand tuned to be sensitive. To get the scale to be calibrated, lot of code needs to be changed - ToDo: 
+                <ol>
+                    <li>Function calls to be written for getting the new value from BLETask stack to InterfaceTask stack</li>
+                    <li>Need to save the value to storage</li>
+                    <li>Nice to haves - output the press value as a analog output value (0~255) like a controller </li>
+                    <li>Nice to haves - have two state press-downs (like camera), half-press and full-press</li>
+                </ol>
+            </li>
+        </ul>
+        <h2>How to setup profile</h2>
+        <ul>
+            <li><b>Num. positions:</b> Having value -1 is infinite positions</li>
+            <li><b>Start position:</b> Sets the motor at this position when profile is loaded</li>
+            <li><b>Position with radians:</b> Right now, because of the motor Zero Electrical Offset issue, the radians work best if steps are wider. Might be that some values fall right between the motor dead-zone and have no haptic played or haptic(a.k.a motor) is weak</li>
+            <li><b>Detent strenght:</b> Force from 0~2 of how hard the motor works againts going from over the detent</li>
+            <li><b>Endstop strenght:</b> Force from 0~5 of how hard the motor works againts getting back to end. Having 0, means you can go over indeffinitelly</li>
+            <li><b>Snap point (1.1 / 0.5):</b> Experiment of having 1 or 1.1 or 0.6, as it changes how each detent feels</li>
+            <li><b>Profile name:</b> Not used now, can be used for later storage</li>
+        </ul>
+
+    </div>
 
     <script>
 

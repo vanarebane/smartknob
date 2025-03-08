@@ -19,7 +19,7 @@
 // static const Direction FOC_DIRECTION = Direction::CW;
 
 // SparkFun motor + Tarmo board
-static const float ZERO_ELECTRICAL_OFFSET = 5.47;  
+static const float ZERO_ELECTRICAL_OFFSET = 4.37;  
 static const Direction FOC_DIRECTION = Direction::CCW;
 
 // // Aliexpress motor + Mikk board
@@ -31,8 +31,16 @@ static const Direction FOC_DIRECTION = Direction::CCW;
 // static const Direction FOC_DIRECTION = Direction::CCW;
 
 
-static const int MOTOR_POLE_PAIRS = 7;
+// Tuning parameters for the Wanzhida/Oncetop OT-EM3215D2450Y1R,
+// sold by SparkFun (ROB-20441).
 
+// #define FOC_PID_P 4
+// #define FOC_PID_I 0
+// #define FOC_PID_D 0.04
+// #define FOC_PID_OUTPUT_RAMP 10000
+// #define FOC_PID_LIMIT 10
+static const int MOTOR_POLE_PAIRS = 4;
+static const float FOC_VOLTAGE_LIMIT = 3.6;
 
 // ####
 static const float DEAD_ZONE_DETENT_PERCENT = 0.2;
@@ -75,7 +83,7 @@ void MotorTask::run() {
     motor.linkDriver(&driver);
 
     motor.controller = MotionControlType::torque;
-    motor.voltage_limit = 5;
+    motor.voltage_limit = FOC_VOLTAGE_LIMIT;
     motor.velocity_limit = 10000;
     motor.linkSensor(&encoder);
 
@@ -162,7 +170,7 @@ void MotorTask::run() {
                     // log(buf_);
                     
                     motor.zero_electric_angle = command.data.motorconfig.zeroElecricalOffset;
-                    // motor.voltage_limit = 5;
+                    // motor.voltage_limit = FOC_VOLTAGE_LIMIT;
                     // motor.controller = MotionControlType::torque;
                     if (command.data.motorconfig.focDirection > 0) {
                         motor.sensor_direction = Direction::CW;
@@ -372,7 +380,7 @@ void MotorTask::calibrate() {
     uint8_t electrical_revolutions = 20;
     snprintf(buf_, sizeof(buf_), "Going to measure %d electrical revolutions...", electrical_revolutions);
     log(buf_);
-    motor.voltage_limit = 5;
+    motor.voltage_limit = FOC_VOLTAGE_LIMIT;
     motor.move(a);
     log("Going to electrical zero...");
     float destination = a + _2PI;
@@ -422,7 +430,7 @@ void MotorTask::calibrate() {
 
     // #### Determine mechanical offset to electrical zero
     // Measure mechanical angle at every electrical zero for several revolutions
-    motor.voltage_limit = 5;
+    motor.voltage_limit = FOC_VOLTAGE_LIMIT;
     motor.move(a);
     float offset_x = 0;
     float offset_y = 0;
@@ -472,7 +480,7 @@ void MotorTask::calibrate() {
     // TODO: save to non-volatile storage
     //motor.pole_pairs = measured_pole_pairs; // The calibration software never measures the poles perfectly
     motor.zero_electric_angle = avg_offset_angle + _3PI_2;
-    motor.voltage_limit = 5;
+    motor.voltage_limit = FOC_VOLTAGE_LIMIT;
     motor.controller = MotionControlType::torque;
 
     log("\n\nRESULTS:\n  Update these constants at the top of " __FILE__);

@@ -186,3 +186,44 @@ body{
     color: #999;
     padding:100px 100px 20px;
 }
+
+@media only screen and (max-width:670px) {
+    
+    #request, #debug, #wifistate{
+        font-size: 0.9em;
+    }
+    .action_btns button, .action_btns label, .action_btns input, .action_btns span, .action_btns select {
+        margin: 16px 5% 0;
+        padding: 10px;
+        width: 90%;
+        font-size: 0.9em;
+    }
+    .profilegroup .statebtns, .profilegroup>label, .profilegroup>span, .profilegroup>input, .profilegroup>select {
+        margin: 7px 0;
+        font-size: 0.6em;
+    }
+    .config_box.open {
+        padding: 15px 20px;
+    }
+    .config_box {
+        width: calc(90% - 50px);
+        margin: 4px calc(5% + 5px);
+    }
+    .profilegroup {
+        width: 90%;
+        margin: 0 5% 0;
+    }
+    .statebtns.btn_small {
+        font-size: 0.3em;
+        padding: 5px;
+    }    
+    .changelog {
+        font-size: 0.7em;
+        padding: 20px 20px 20px;
+    }
+    .config_box .profilegroup input[type="radio"], .config_box .profilegroup input[type="checkbox"]{
+        height: 0.9em;
+        width: 0.9em;
+        box-shadow: none;
+    }
+}

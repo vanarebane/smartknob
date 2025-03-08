@@ -183,57 +183,72 @@ const SmartKnob = class {
     handleCombinedNotifications(event) {
         let buffer = event.target.value;
 
+        let key = buffer.getUint8(0);
+
         let value = 0;
-        for (let i = 4; i < buffer.byteLength; i++) {
-            value += i > 4 ? buffer.getUint8(i) * (256 * (i - 4)) : buffer.getUint8(i);
+        if(key == 4 || key == 7){
+            value =
+            buffer.getUint8(1) +
+            buffer.getUint8(2) * 256 +
+            buffer.getUint8(3) +
+            buffer.getUint8(4) * 256;
+            if (buffer.getUint8(3) > 0) {
+                // if last two last bits have any value, the value is in negative
+                value = value - 131071;
+            }
+        }
+        else if(key !== 1 || key == 3){
+            for (let i = 1; i < buffer.byteLength; i++) {
+                value += i > 1 ? buffer.getUint8(i) * (256 * (i - 1)) : buffer.getUint8(i);
+            }
         }
 
-        //let response = bufferToString(buffer);
-        //console.log(buffer, buffer.byteLength, response, value);
+        // let response = bufferToString(buffer);
+        // console.log(buffer, key, response, value);
 
-        switch (buffer.getUint8(0)) { // First key byte for the type of value
-            case 1:
+        switch (key) { // First key byte for the type of value
+            case 1: // Button change
                 document.dispatchEvent(new CustomEvent("handleButtonNotifications", {
                     detail: { value: buffer.getUint8(1) == 1 ? true : false },
                 }));
                 break;
 
-            case 2:
+            case 2: // Scale value
                 document.dispatchEvent(new CustomEvent("handleScaleNotifications", {
                     detail: { value: parseFloat(value) },
                 }));
                 break;
 
-            case 3:
+            case 3: // Push-down change
                 document.dispatchEvent(new CustomEvent("handlePushNotifications", {
                     detail: { value: buffer.getUint8(1) == 1 ? true : false },
                 }));
                 break;
 
-            case 4:
-                value =
-                buffer.getUint8(4) +
-                buffer.getUint8(5) * 256 +
-                buffer.getUint8(6) +
-                buffer.getUint8(7) * 256;
-                if (buffer.getUint8(6) > 0) {
-                    // if last two last bits have any value, the value is in negative
-                    value = value - 131071;
-                }
+            case 4: // Position
                 document.dispatchEvent(new CustomEvent("handlePositionNotifications", {
                     detail: { value: parseFloat(value) },
                 }));
                 break;
 
-            case 5:
+            case 5: // New position set
                 document.dispatchEvent(new CustomEvent("handlePositionSetNotifications", {
                     detail: { value: parseFloat(value - 1) },
                 }));
                 break;
 
-            case 6:
+            case 6: // Lux value
                 document.dispatchEvent(new CustomEvent("handleLuxNotifications", {
                     detail: { value: parseFloat(value - 1) },
+                }));
+                break;
+
+            case 7: // Sub positions
+                // let response = bufferToString(buffer);
+                // console.log(buffer, buffer.byteLength, response, value);
+
+                document.dispatchEvent(new CustomEvent("handlePositionSubNotifications", {
+                    detail: { value: parseFloat(value - 1)/100 },
                 }));
                 break;
             }
@@ -244,6 +259,11 @@ const SmartKnob = class {
         return await this.sendWrite("SP", profile.join(","));
     }
 
+    // Prepares write command for profile specific
+    async sendConfig(config) {
+        return await this.sendWrite("CM", config.join(","));
+    }
+    
     // Sends write command to BT
     async sendWrite(cmd, value) {
         // try{

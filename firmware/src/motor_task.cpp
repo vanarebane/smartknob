@@ -18,13 +18,18 @@
 // static const float ZERO_ELECTRICAL_OFFSET = 6.5; // 6.5; //6.21; 
 // static const Direction FOC_DIRECTION = Direction::CW;
 
-// Aliexpress motor + Mikk board
-static const float ZERO_ELECTRICAL_OFFSET = 6.7; // Perfection is somewhere between 6.4 ~ 6.7
-static const Direction FOC_DIRECTION = Direction::CW;
+// SparkFun motor + Tarmo board
+static const float ZERO_ELECTRICAL_OFFSET = 5.47;  
+static const Direction FOC_DIRECTION = Direction::CCW;
 
-// SparkFun motor + Mikk board
+// // Aliexpress motor + Mikk board
+// static const float ZERO_ELECTRICAL_OFFSET = 6.7; // Perfection is somewhere between 6.4 ~ 6.7
+// static const Direction FOC_DIRECTION = Direction::CW;
+
+// // SparkFun motor + Mikk board
 // static const float ZERO_ELECTRICAL_OFFSET = 6.22;  
 // static const Direction FOC_DIRECTION = Direction::CCW;
+
 
 static const int MOTOR_POLE_PAIRS = 7;
 
@@ -148,6 +153,27 @@ void MotorTask::run() {
                     );
                     break;
                 }
+                case CommandType::MOTORCONFIG: {
+                                    
+                    // log("\n\nRESULTS:\n  Update these constants at the top of " __FILE__);
+                    // snprintf(buf_, sizeof(buf_), "  ZERO_ELECTRICAL_OFFSET: %.2f", command.data.motorconfig.zeroElecricalOffset);
+                    // log(buf_);
+                    // snprintf(buf_, sizeof(buf_), "  MOTOR_POLE_PAIRS: %d", motor.pole_pairs);
+                    // log(buf_);
+                    
+                    motor.zero_electric_angle = command.data.motorconfig.zeroElecricalOffset;
+                    // motor.voltage_limit = 5;
+                    // motor.controller = MotionControlType::torque;
+                    if (command.data.motorconfig.focDirection > 0) {
+                        motor.sensor_direction = Direction::CW;
+                        // log("  FOC_DIRECTION: Direction::CW");
+                    } else {
+                        motor.sensor_direction = Direction::CCW;
+                        // log("  FOC_DIRECTION: Direction::CCW");
+                    }
+
+                    break;
+                }
                 case CommandType::HAPTIC: {
                     // Play a hardcoded haptic "click"
                     float strength = command.data.haptic.press ? 5 : 1.5;
@@ -222,7 +248,7 @@ void MotorTask::run() {
         if (millis() - last_publish > 5) {
             publish({
                 .current_position = config.position,
-                .sub_position_unit = -angle_to_detent_center / config.position_width_radians,
+                .sub_position_unit = floorf( -angle_to_detent_center / config.position_width_radians * 100) / 100, // 0,00
                 .has_config = true,
                 .config = config,
             });
@@ -240,6 +266,16 @@ void MotorTask::setConfig(const PB_SmartKnobConfig& config) {
         .command_type = CommandType::CONFIG,
         .data = {
             .config = config,
+        }
+    };
+    xQueueSend(queue_, &command, portMAX_DELAY);
+}
+
+void MotorTask::setMotorConfig(const MotorConfig& motorconfig) {
+    Command command = {
+        .command_type = CommandType::MOTORCONFIG,
+        .data = {
+            .motorconfig = motorconfig,
         }
     };
     xQueueSend(queue_, &command, portMAX_DELAY);

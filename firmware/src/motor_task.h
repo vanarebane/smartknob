@@ -12,6 +12,7 @@
 enum class CommandType {
     CALIBRATE,
     CONFIG,
+    MOTORCONFIG,
     HAPTIC,
 };
 
@@ -24,6 +25,7 @@ struct Command {
     union CommandData {
         uint8_t unused;
         PB_SmartKnobConfig config;
+        MotorConfig motorconfig;
         HapticData haptic;
     };
     CommandData data;
@@ -37,6 +39,7 @@ class MotorTask : public Task<MotorTask> {
         ~MotorTask();
 
         void setConfig(const PB_SmartKnobConfig& config);
+        void setMotorConfig(const MotorConfig& motorconfig);
         void playHaptic(bool press);
         void runCalibration();
 

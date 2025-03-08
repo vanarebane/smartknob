@@ -269,13 +269,23 @@ void InterfaceTask::updateHardware() {
 
     
     #if SK_BLE
-        if(ble_task_.hasNewMotorConfig()){
-            PB_SmartKnobConfig config = ble_task_.getMotorConfig();
-            
-            char buf_[256];
-            snprintf(buf_, sizeof(buf_), "Changing config from BT -- %s", config.text);
-            log(buf_);
-            motor_task_.setConfig(config);
+        if(ble_task_.hasInputFromBT()){
+            if(ble_task_.hasNewMotorProfile()){
+                PB_SmartKnobConfig profile = ble_task_.getMotorProfile();
+                
+                char buf_[256];
+                snprintf(buf_, sizeof(buf_), "Changing profile from BT -- %s", profile.text);
+                log(buf_);
+                motor_task_.setConfig(profile);
+            }
+            if(ble_task_.hasNewMotorConfig()){
+                MotorConfig config = ble_task_.getMotorConfig();
+                
+                char buf_[256];
+                snprintf(buf_, sizeof(buf_), "Changing config from BT");
+                log(buf_);
+                motor_task_.setMotorConfig(config);
+            }
         }
     #endif
 

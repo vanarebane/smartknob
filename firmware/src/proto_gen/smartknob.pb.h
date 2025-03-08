@@ -59,6 +59,13 @@ typedef struct _PB_FromSmartKnob {
     } payload;
 } PB_FromSmartKnob;
 
+/* Message FROM the BT to SmartKnob */
+typedef struct MotorConfig {
+    float zeroElecricalOffset;
+    int focDirection;
+    int scaleTop;
+    int scaleLow;
+} MotorConfig;
 
 #ifdef __cplusplus
 extern "C" {

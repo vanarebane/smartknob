@@ -5,9 +5,9 @@
 bool deviceConnected = false;
 
 bool ble_quiet_please = false;
-bool hasNewMotorConfig_ = false;
-bool newMotorConfigProccessed = true;
-char* newMotorConfig_;
+bool hasNewInputFromBT = false;
+bool newBTInputProcessed = true;
+char* newInputFromBT;
 
 class KnobServerCallbacks: public BLEServerCallbacks {
 
@@ -30,7 +30,7 @@ public:
         // Serial.print("value received = ");
         // Serial.println((char*)&xcc);
 
-        newMotorConfig_ = reinterpret_cast<char*>(pCharacteristic->getData());
+        newInputFromBT = reinterpret_cast<char*>(pCharacteristic->getData());
         
         // char buf_[256];
         // snprintf(buf_, sizeof(buf_), "value received from BT = %s", val);
@@ -39,8 +39,8 @@ public:
         log_i("data is received");
 
         // delay(50);
-        hasNewMotorConfig_ = true;
-        newMotorConfigProccessed = false;
+        hasNewInputFromBT = true;
+        newBTInputProcessed = false;
         // delay(50);
         ble_quiet_please = false;
     }
@@ -134,10 +134,10 @@ void BLETask::run() {
                 sendNotify(1, button_state_old);
             }
 
-            // if(press_value_unit_old != press_value_unit_){
-            //     press_value_unit_old = press_value_unit_;
-            //     sendNotify(2, press_value_unit_old);
-            // }
+            if(press_value_unit_old != press_value_unit_){
+                press_value_unit_old = press_value_unit_;
+                sendNotify(2, press_value_unit_old);
+            }
 
             if (press_state_old != press_state_){
                 press_state_old = press_state_;
@@ -154,10 +154,18 @@ void BLETask::run() {
                 sendNotify(5, num_positions);
             }
 
-            // if (lux_value_old != lux_value_){
-            //     lux_value_old = lux_value_;
-            //     sendNotify(6, (uint32_t)&lux_value_old);
-            // }
+            if (lux_value_old != lux_value_){
+                lux_value_old = lux_value_;
+                sendNotify(6, lux_value_old);
+            }
+
+            subpos = floorf( state.sub_position_unit * 100) / 100;
+            if (trunc(20. * sub_positions) != trunc(20. * subpos)){ 
+            // if (sub_positions != subpos){ 
+                sub_positions = subpos;
+                sendNotify(7, sub_positions);
+            }
+
         }
 
         // disconnecting
@@ -198,23 +206,34 @@ void BLETask::run() {
 }
 
 void BLETask::sendNotify(int key, bool data){
-	temp8[0] = key;
-    if(data) temp8[1] = 1;
-    else temp8[1] = 0;
-    pTxCharacteristic->setValue((uint8_t*)&temp8, 2);
+    uint8_t temp[2];
+	temp[0] = key;
+    if(data) temp[1] = 1;
+    else temp[1] = 0;
+    pTxCharacteristic->setValue((uint8_t*)&temp, 2);
     pTxCharacteristic->notify();
     delay(ble_delay); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }
 void BLETask::sendNotify(int key, uint32_t data32){
-	temp32[0] = key;
-	temp32[1] = data32;
-	temp32[2] = data32 >> 8;
-	temp32[3] = data32 >> 16;
-	temp32[4] = data32 >> 24;
-	temp32[5] = data32 >> 32;
-	temp32[6] = data32 >> 40;
-	temp32[7] = data32 >> 48;
-    pTxCharacteristic->setValue((uint8_t*)&temp32,8);
+    uint8_t temp[5];
+	temp[0] = key;
+	temp[1] = data32;
+	temp[2] = data32 >> 8;
+	temp[3] = data32 >> 16;
+	temp[4] = data32 >> 24;
+    pTxCharacteristic->setValue((uint8_t*)&temp,5);
+    pTxCharacteristic->notify();
+    delay(ble_delay); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+}
+void BLETask::sendNotify(int key, float& dataf){
+    uint8_t temp[5];
+    uint32_t data = static_cast<uint32_t>(dataf * 100);
+	temp[0] = key;
+	temp[1] = data;
+	temp[2] = data >> 8;
+	temp[3] = data >> 16;
+	temp[4] = data >> 24;
+    pTxCharacteristic->setValue((uint8_t*)&temp,5);
     pTxCharacteristic->notify();
     delay(ble_delay); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
 }
@@ -236,56 +255,78 @@ void BLETask::updateButton(bool new_button_state){
 }
 
 
-bool BLETask::hasNewMotorConfig(){
+bool BLETask::hasInputFromBT(){
 
-    if(hasNewMotorConfig_){
-        if(newMotorConfigProccessed){
+    if(hasNewInputFromBT){
+        if(newBTInputProcessed){
             return true;
         }
-        else{            
+        else{
             log("Received from BT: ");
-            log(newMotorConfig_);
+            log(newInputFromBT);
 
             // already set to true
-            newMotorConfigProccessed = true;
-            // Create the struct instance
-            PB_SmartKnobConfig config;
+            newBTInputProcessed = true;
 
-            // Parse the input and populate the struct
-            if (parseInput(newMotorConfig_, config)) {
-                new_motor_config = config;
-                return true;
-            } else {
-                log("Invalid input");
-                hasNewMotorConfig_ = false;
-                return false;
+            if (std::strncmp(newInputFromBT, "SP+", 3) == 0) {
+                // Create the struct instance
+                PB_SmartKnobConfig profile;
+
+                // Parse the input and populate the struct
+                if (parseInputProfile(newInputFromBT, profile)) {
+                    new_motor_profile = profile;
+                    hasNewMotorProfile_ = true;
+                    return true;
+                } else {
+                    log("Invalid input SP");
+                    hasNewInputFromBT = false;
+                    hasNewMotorProfile_ = false;
+                    return false;
+                }
             }
+            else if (std::strncmp(newInputFromBT, "CM+", 3) == 0) {
+
+                MotorConfig config;
+
+                // Parse the input and populate the struct
+                if (parseInputConfig(newInputFromBT, config)) {
+                    new_motor_config = config;
+                    hasNewMotorConfig_ = true;
+                    return true;
+                } else {
+                    log("Invalid input CF/CM");
+                    hasNewInputFromBT = false;
+                    hasNewMotorConfig_ = false;
+                    return false;
+                }
+            }
+            
+ 
         }
     }
 
     else return false;
 
 }
+bool BLETask::hasNewMotorProfile(){
+    return hasNewMotorProfile_;
+}
+bool BLETask::hasNewMotorConfig(){
+    return hasNewMotorConfig_;
+}
 
-PB_SmartKnobConfig BLETask::getMotorConfig(){
-    
-    hasNewMotorConfig_ = false;
+PB_SmartKnobConfig BLETask::getMotorProfile(){
+    hasNewInputFromBT = false;
+    return new_motor_profile;
+}
+
+MotorConfig BLETask::getMotorConfig(){
+    hasNewInputFromBT = false;
     return new_motor_config;
-
-    // PB_SmartKnobConfig config = {
-    //         32,
-    //         0,
-    //         8.225806452 * PI / 180,
-    //         0.2,
-    //         1,
-    //         1.1,
-    //         "Fooo",
-    // };
-    // return config;
 }
 
 // Function to parse the input string and populate the struct
-bool BLETask::parseInput(const char* input, PB_SmartKnobConfig& data) {
+bool BLETask::parseInputProfile(const char* input, PB_SmartKnobConfig& data) {
     // // Check for "SP+" prefix
     if (std::strncmp(input, "SP+", 3) != 0) {
         return false;
@@ -332,6 +373,60 @@ bool BLETask::parseInput(const char* input, PB_SmartKnobConfig& data) {
     } catch (...) {
         delete[] mutableDataString;
         return false;
+    }
+
+    delete[] mutableDataString;
+    return true;
+}
+// Function to parse the input string and populate the struct
+bool BLETask::parseInputConfig(const char* input, MotorConfig& data) {
+    // Check for correct prefix
+    if (std::strncmp(input, "CM+", 3) != 0) {
+        return false;
+    }
+
+    // Extract the relevant part after "SP+"
+    const char* dataString = input + 3;
+
+    // // Split the string by commas
+    std::vector<const char*> tokens;
+    char* mutableDataString = new char[std::strlen(dataString) + 1];
+    std::strcpy(mutableDataString, dataString);
+
+    char* token = std::strtok(mutableDataString, ",");
+    while (token != nullptr) {
+        tokens.push_back(token);
+        token = std::strtok(nullptr, ",");
+    }
+
+    // float zeroElecricalOffset;
+    // Direction focDirection;
+    // int scaleTop;
+    // int scaleLow;
+
+    // Check if we have the expected number of values
+    if (tokens.size() < 2) {
+        delete[] mutableDataString;
+        return false;
+    }
+    
+    // Convert and assign the values to the struct
+    try {
+        data.zeroElecricalOffset = std::atof(tokens[0]);
+        data.focDirection = std::atoi(tokens[1]);
+    } catch (...) {
+        delete[] mutableDataString;
+        return false;
+    }
+    
+    if (tokens.size() == 4) {
+        try {
+            data.scaleTop = std::atof(tokens[2]);
+            data.scaleLow = std::atof(tokens[3]);
+        } catch (...) {
+            delete[] mutableDataString;
+            return false;
+        }
     }
 
     delete[] mutableDataString;

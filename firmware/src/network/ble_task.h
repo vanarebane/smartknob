@@ -43,8 +43,12 @@ class BLETask : public Task<BLETask> {
         void updateScale(bool press_value_state);
         void updateButton(bool button_state);
         void updateLux(float new_lux_value);
+        bool hasInputFromBT();
+        bool hasNewMotorProfile();
         bool hasNewMotorConfig();
-        PB_SmartKnobConfig getMotorConfig();
+        PB_SmartKnobConfig getMotorProfile();
+        MotorConfig getMotorConfig();
+        
 
         QueueHandle_t getKnobStateQueue();
         void addListener(QueueHandle_t queue);
@@ -60,7 +64,7 @@ class BLETask : public Task<BLETask> {
         Logger* logger_;
         std::vector<QueueHandle_t> listeners_;
 
-        int ble_delay = 5;
+        int ble_delay = 7;
 
         // BLE Setup
         BLEServer* pServer = NULL;
@@ -70,7 +74,6 @@ class BLETask : public Task<BLETask> {
         bool oldDeviceConnected = false;
 
         int32_t response = 0;
-        // bool hasUpdate = false;
         uint32_t press_value_unit_;
         uint32_t press_value_unit_old;
         bool press_state_;
@@ -79,11 +82,15 @@ class BLETask : public Task<BLETask> {
         bool button_state_old;
         uint32_t current_position;
         uint32_t num_positions;
+        float sub_positions;
         float lux_value_;
         float lux_value_old;
-        PB_SmartKnobConfig new_motor_config;
-        uint32_t temp32[8];
-        uint8_t temp8[2];
+        float subpos;
+
+        PB_SmartKnobConfig new_motor_profile;
+        MotorConfig new_motor_config;
+        bool hasNewMotorConfig_ = false;
+        bool hasNewMotorProfile_ = false;
 
         QueueHandle_t knob_state_queue_;
 
@@ -92,7 +99,10 @@ class BLETask : public Task<BLETask> {
 
         void sendNotify(int, bool);
         void sendNotify(int, uint32_t);
-        bool parseInput(const char* input, PB_SmartKnobConfig& data);
+        void sendNotify(int, float&);
+        bool parseInputProfile(const char* input, PB_SmartKnobConfig& data);
+        bool parseInputConfig(const char* input, MotorConfig& data);
+        
 
         void publish(const PB_SmartKnobState& state);
         // void calibrate();

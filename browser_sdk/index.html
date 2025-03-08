@@ -24,6 +24,8 @@
             <input style="text-align: right;" name="position_cur" value="0" type="text" disabled>
             <span style="text-align: center; width: 10px;" >/</span>
             <input name="position_set" value="0" type="text" disabled>
+            <span>Sub:</span>
+            <input name="position_sub" value="0" type="text" disabled>
         </div>
         <div class="profilegroup">
             <label for="light_raw" class="pwroff">Light:</label>
@@ -34,7 +36,9 @@
             <label for="strain" class="pwroff">Scale:</label>
             <button style="width: 100%; text-align: center;" class="statebtns" id="strain_push">Push</button>
             <input style="width: 100%; text-align: right;" name="strain_raw" value="0" type="number" disabled>
-            <span>raw</span>
+            <span style="width: 100px;" >raw</span>
+            <button style="width: 100px; text-align: center;" class="statebtns btn_small" id="strain_set_top">Set top</button>
+            <button style="width: 100px; text-align: center;" class="statebtns btn_small" id="strain_set_low">Set low</button>
         </div>
         <div class="profilegroup">
             <label for="knob_button" class="pwroff">Button:</label>
@@ -46,13 +50,13 @@
             <input style="width: 100%;" name="profile_name" value="" type="text" disabled>
         </div>
                
-        <div class="profilegroup">
+        <!-- <div class="profilegroup">
             <button id="setactive" class="statebtns" data-cmd="STA">Red</button>
             <button id="setmobile" class="statebtns" data-cmd="STM">Green</button>
             <button id="setlocked" class="statebtns" data-cmd="STL">Blue</button>
-        </div>
-        <button id="profileconfig" >SmartKnob Profile</button><br>
-        <div class="profileconfig_dialog">
+        </div> -->
+        <button id="profileconfig" >Profile</button><br>
+        <div class="profileconfig_dialog config_box">
             
             <div class="profilegroup">
                 <label for="preset_profile">Preset profiles:</label><select name="preset_profile"></select>
@@ -85,6 +89,39 @@
             </div>
             
         </div>
+        <button id="deviceconfig" >Config</button><br>
+        <div class="deviceconfig_dialog config_box">
+            
+            <div class="profilegroup">
+                <label for="motor_zero">Motor Zero El. Offset:</label>
+                <input style="width: 100px" name="motor_zero" value="6.77" type="number">
+                <button style="width: 100px; text-align: center;" class="statebtns btn_mid change_offset" data-change="-0.1">-.1</button>
+                <button style="width: 100px; text-align: center;" class="statebtns btn_mid change_offset" data-change="-0.01">-.01</button>
+                <button style="width: 100px; text-align: center;" class="statebtns btn_mid change_offset" data-change="0.01">+.01</button>
+                <button style="width: 100px; text-align: center;" class="statebtns btn_mid change_offset" data-change="0.1">+.1</button>
+            </div>
+            <div class="profilegroup" style="max-width: none;">
+                <label>FOC Direction:</label>
+                <label style="width: 150px;"><input type="radio" value="1" name="motor_foc" checked> CW</label>
+                <label style="width: 150px;"><input type="radio" value="-1" name="motor_foc"> CCW</label> 
+            </div>
+            <div class="profilegroup">
+                <label id="motorpush" style="width: 100%; max-width: 100%;"><input type="checkbox" id="profile_motor_send_on_change"> Send motor config on value change</label>
+            </div>
+            <div class="profilegroup">
+                <label for="scale_top">Scale top:</label><input name="scale_top" value="" type="number">
+            </div>
+            <div class="profilegroup">
+                <label for="scale_low">Scale low:</label><input name="scale_low" value="" type="number">
+            </div>
+            <button id="deviceconfig_send">Send</button>
+            
+            <div class="profilegroup">
+                <span id="config_message">...</span>
+            </div>
+            
+        </div>
+
     </div>
     
     <div class="changelog">
@@ -131,6 +168,10 @@
         sk.addListener('handlePositionSetNotifications', (e)=>{ 
             $('[name="position_set"]').val(e.detail.value)
         })
+        // Position sub value notifications
+        sk.addListener('handlePositionSubNotifications', (e)=>{ 
+            $('[name="position_sub"]').val(e.detail.value)
+        })
 
         // Lux reading notification / 1 per sec
         sk.addListener('handleLuxNotifications', (e)=>{ 
@@ -164,7 +205,7 @@
         
     
         /////////////////////////////////////////////////
-        /// PROCESSOR
+        /// PROFILE
 
 
         let PI = Math.PI;
@@ -268,25 +309,14 @@
             $('[name="snap_point"]').val(v[5])
             $('[name="new_profile_name"]').val(v[6].replace("\n", " / "))
         })
-    
-    
-        var btn_read = async function(number){
-            console.log("Readdoor "+number)
-            // await toolBoxBT.request();
-            if(!bt.connected)
-                await bt.connect();
-    
-            await bt.readDoor();
-            console.log("   Done")
-        }
-    
+        
     
         $('#profileconfig').on('click', async event => {
-            // OPEN CONFIG WINDOW
+            $('.deviceconfig_dialog').removeClass("open")
             $('.profileconfig_dialog').toggleClass("open")
         })
-    
-    
+        
+
         $('#profileconfig_send').on('click', async event => {
             let msg = $('#profile_message')
     
@@ -296,13 +326,13 @@
             msg.html("Sending config to SmartKnob")
 
             profile = [
-                $('[name="pos_num"]').val().replace(",","."),
-                $('[name="pos_start"]').val().replace(",","."),
+                parseInt($('[name="pos_num"]').val().replace(",",".")),
+                parseInt($('[name="pos_start"]').val().replace(",",".")),
                 $('[name="pos_rad"]').val().replace(",","."),
                 $('[name="strenght_detent"]').val().replace(",","."),
                 $('[name="strenght_endpoint"]').val().replace(",","."),
                 $('[name="snap_point"]').val().replace(",","."),
-                "Tere", //$('[name="new_profile_name"]').val().replace("/,","-")
+                $('[name="new_profile_name"]').val().replace("/,","-")
             ]
 
             console.log('Sending profile: ...');
@@ -312,6 +342,94 @@
                 msg.html("Sending done")
                 elem.removeClass('processing')
                 console.log('> Profile sent')
+                $('[name="profile_name"]').val($('[name="new_profile_name"]').val())
+            }
+            else{
+                msg.html("Sending error: "+res.error)
+                console.log('> Command BT error: '+res.error)
+            }
+        })
+        
+        
+    
+        /////////////////////////////////////////////////
+        /// CONFIG
+
+    
+        $('#strain_set_top').on('click', async event => {
+            $('[name="scale_top"]').val($('[name="strain_raw"]').val())
+        })
+
+        $('#strain_set_low').on('click', async event => {
+            $('[name="scale_low"]').val($('[name="strain_raw"]').val())
+        })
+    
+        $('#deviceconfig').on('click', async event => {
+            $('.profileconfig_dialog').removeClass("open")
+            $('.deviceconfig_dialog').toggleClass("open")
+        })
+
+
+        $('#profile_motor_send_on_change').on('change', async event => {
+            if($(event.target).is(":checked")){
+                $('#motorpush').addClass('green')
+            }
+            else{
+                $('#motorpush').removeClass('green')
+            }
+        })
+
+        $('.change_offset').on('click', async event => {
+            let v = $('[name="motor_zero"]')
+            v.val((parseFloat(v.val()) + parseFloat($(event.target).attr('data-change'))).toFixed(2))
+
+            if($('#profile_motor_send_on_change').is(":checked")){
+                $('#deviceconfig_send').click();
+            }
+        })
+
+        
+        $('#deviceconfig_send').on('click', async event => {
+            let msg = $('#config_message')
+    
+            elem = $(event.target)
+            elem.addClass('processing')
+    
+            msg.html("Sending config to SmartKnob")
+
+            let motorelem = $('[name="motor_zero"]').val()
+            let motorval = motorelem.replace(",",".")
+            if(motorval < 0){
+                motorelem.val(0)
+                motorval = 0
+            }
+            let motorfoc = $('[name="motor_foc"]:checked').val().replace(",",".")
+
+            let scale_top = $('[name="scale_top"]').val().replace(",",".")
+            let scale_low = $('[name="scale_low"]').val().replace(",",".")
+
+            if(scale_top !== "" && scale_low !== ""){
+                config = [
+                    motorval,
+                    motorfoc,
+                    parseInt(scale_top),
+                    parseInt(scale_low),
+                ]
+            }
+            else{
+                config = [
+                    motorval,
+                    motorfoc,
+                ]
+            }
+
+            console.log('Sending config: ...');
+            let res = await sk.sendConfig(config);
+
+            if(res == true){
+                msg.html("Sending done")
+                elem.removeClass('processing')
+                console.log('> Config sent')
             }
             else{
                 msg.html("Sending error: "+res.error)

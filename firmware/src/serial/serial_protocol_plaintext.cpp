@@ -34,11 +34,23 @@ void SerialProtocolPlaintext::loop() {
             }
         } else if (b == 'C') {
             motor_task_.runCalibration();
+        } else if (b == 'O') {
+            if (ota_request_callback_) {
+                ota_request_callback_();
+            }
+        } else if (b == 'R') {
+            stream_.println("Rebooting...");
+            delay(100);
+            ESP.restart();
         }
     }
 }
 
 void SerialProtocolPlaintext::init(DemoConfigChangeCallback cb) {
     demo_config_change_callback_ = cb;
-    stream_.println("SmartKnob starting!\n\nSerial mode: plaintext\nPress 'C' at any time to calibrate.\nPress <Space> to change haptic modes.");
+    stream_.println("SmartKnob starting!\n\nSerial mode: plaintext\nPress 'C' at any time to calibrate.\nPress <Space> to change haptic modes.\nPress 'O' to enter OTA mode.\nPress 'R' to reboot.");
+}
+
+void SerialProtocolPlaintext::setOtaRequestCallback(OtaRequestCallback cb) {
+    ota_request_callback_ = cb;
 }

@@ -100,8 +100,25 @@ void MotorTask::run() {
     encoder.update();
     delayMicroseconds(1000);
 
-    motor.pole_pairs = MOTOR_POLE_PAIRS;
-    motor.initFOC(ZERO_ELECTRICAL_OFFSET, FOC_DIRECTION);
+    // Use persisted calibration when available; compile-time constants are the fallback.
+    // Run calibration ('C' on console, or Calibrate button in the web app) to write NVS.
+    preferences_.begin("motor", false);
+    int8_t stored_pp = preferences_.getChar("pole_pairs", 0);
+    motor.pole_pairs = stored_pp > 0 ? stored_pp : MOTOR_POLE_PAIRS;
+    float zero_offset = preferences_.getFloat("zero_offset", NAN);
+    int8_t stored_dir = preferences_.getChar("foc_dir", 0);
+    Direction foc_direction = stored_dir == 0 ? FOC_DIRECTION : (stored_dir > 0 ? Direction::CW : Direction::CCW);
+    bool from_nvs = !isnan(zero_offset) && stored_dir != 0;
+    if (isnan(zero_offset)) {
+        zero_offset = ZERO_ELECTRICAL_OFFSET;
+    }
+    snprintf(buf_, sizeof(buf_), "Motor calibration: offset=%.2f dir=%s pp=%d (%s)",
+        zero_offset,
+        foc_direction == Direction::CW ? "CW" : "CCW",
+        motor.pole_pairs,
+        from_nvs ? "from NVS" : "compile-time default, consider calibrating");
+    log(buf_);
+    motor.initFOC(zero_offset, foc_direction);
 
     motor.monitor_downsample = 0; // disable monitor at first - optional
 
@@ -332,7 +349,11 @@ void MotorTask::calibrate() {
     log("\n\n\nStarting calibration, please DO NOT TOUCH MOTOR until complete!");
 
     motor.controller = MotionControlType::angle_openloop;
-    //motor.pole_pairs = 1; // The calibration software never measures the poles perfectly if the settings are wrong
+    // Sweep with pole_pairs=1 so commanded shaft angle == electrical angle; the
+    // pole-pair measurement below is then real_pp directly, not real_pp/configured_pp.
+    // (With this commented out, a 14pp motor configured as 4pp measured "3.5" and
+    // the offset phase computed against the wrong pole count — garbage calibration.)
+    motor.pole_pairs = 1;
     motor.initFOC(0, Direction::CW);
 
     float a = 0;
@@ -413,8 +434,10 @@ void MotorTask::calibrate() {
     motor.move(a);
 
     if (fabsf(motor.shaft_angle - motor.target) > 1 * PI / 180) {
-        log("ERROR: motor did not reach target!");
-        while(1) {}
+        // Restart instead of hanging so a failed calibration is recoverable remotely
+        log("ERROR: motor did not reach target! Restarting in 2s...");
+        delay(2000);
+        ESP.restart();
     }
 
     float electrical_per_mechanical = electrical_revolutions * _2PI / (end_sensor - start_sensor);
@@ -424,6 +447,17 @@ void MotorTask::calibrate() {
     int measured_pole_pairs = (int)round(electrical_per_mechanical);
     snprintf(buf_, sizeof(buf_), "Pole pairs set to %d", measured_pole_pairs);
     log(buf_);
+
+    // A sane gimbal motor is 1-20 pole pairs. A wild value means the encoder saw
+    // (almost) no rotation — motor stalled, or a phase is open (dead spots, twitching
+    // in place). Abort instead of sweeping for measured_pole_pairs/2 revolutions.
+    if (measured_pole_pairs < 1 || measured_pole_pairs > 20) {
+        log("ERROR: implausible pole-pair count -- motor did not rotate as commanded.");
+        log("Likely an open/broken motor phase (dead spots, stalls) or a stuck rotor.");
+        log("Calibration aborted; nothing saved. Restarting in 5s...");
+        delay(5000);
+        ESP.restart();
+    }
 
     delayMicroseconds(1000000);
 
@@ -477,11 +511,15 @@ void MotorTask::calibrate() {
 
 
     // #### Apply settings
-    // TODO: save to non-volatile storage
-    //motor.pole_pairs = measured_pole_pairs; // The calibration software never measures the poles perfectly
+    motor.pole_pairs = measured_pole_pairs;
     motor.zero_electric_angle = avg_offset_angle + _3PI_2;
     motor.voltage_limit = FOC_VOLTAGE_LIMIT;
     motor.controller = MotionControlType::torque;
+
+    preferences_.putFloat("zero_offset", motor.zero_electric_angle);
+    preferences_.putChar("foc_dir", motor.sensor_direction == Direction::CW ? 1 : -1);
+    preferences_.putChar("pole_pairs", measured_pole_pairs);
+    log("Calibration saved to flash");
 
     log("\n\nRESULTS:\n  Update these constants at the top of " __FILE__);
     snprintf(buf_, sizeof(buf_), "  ZERO_ELECTRICAL_OFFSET: %.2f", motor.zero_electric_angle);

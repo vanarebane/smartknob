@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include <SimpleFOC.h>
 #include <vector>
 
@@ -54,6 +55,9 @@ class MotorTask : public Task<MotorTask> {
         Logger* logger_;
         std::vector<QueueHandle_t> listeners_;
         char buf_[72];
+
+        // Persisted motor calibration (zero electrical offset + sensor direction)
+        Preferences preferences_;
 
         // BLDC motor & driver instance
         BLDCMotor motor = BLDCMotor(1);

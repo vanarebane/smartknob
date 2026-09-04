@@ -43,9 +43,16 @@ class BLETask : public Task<BLETask> {
         void updateScale(bool press_value_state);
         void updateButton(bool button_state);
         void updateLux(float new_lux_value);
+        void updatePressure(float pressure_unit);
+        void updateActuation(float actuation_unit);
+        void setDiagText(const char* text);
         bool hasInputFromBT();
         bool hasNewMotorProfile();
         bool hasNewMotorConfig();
+        bool hasNewActuationPoint();
+        float getActuationPoint();
+        bool otaRequested();
+        bool calibrateRequested();
         PB_SmartKnobConfig getMotorProfile();
         MotorConfig getMotorConfig();
         
@@ -86,11 +93,20 @@ class BLETask : public Task<BLETask> {
         float lux_value_;
         float lux_value_old;
         float subpos;
+        float pressure_unit_;
+        float pressure_unit_old_ = -1;
+        float actuation_;
+        float actuation_old_ = -1;
 
         PB_SmartKnobConfig new_motor_profile;
         MotorConfig new_motor_config;
         bool hasNewMotorConfig_ = false;
         bool hasNewMotorProfile_ = false;
+        bool otaRequested_ = false;
+        bool calibrateRequested_ = false;
+        float new_actuation_;
+        bool hasNewActuation_ = false;
+        char diag_text_[192] = {0};
 
         QueueHandle_t knob_state_queue_;
 
@@ -100,6 +116,7 @@ class BLETask : public Task<BLETask> {
         void sendNotify(int, bool);
         void sendNotify(int, uint32_t);
         void sendNotify(int, float&);
+        void sendDiagText();
         bool parseInputProfile(const char* input, PB_SmartKnobConfig& data);
         bool parseInputConfig(const char* input, MotorConfig& data);
         

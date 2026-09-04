@@ -7,6 +7,7 @@
 #include "uart_stream.h"
 
 typedef std::function<void(void)> DemoConfigChangeCallback;
+typedef std::function<void(void)> OtaRequestCallback;
 
 class SerialProtocolPlaintext : public SerialProtocol {
     public:
@@ -17,10 +18,12 @@ class SerialProtocolPlaintext : public SerialProtocol {
         void handleState(const PB_SmartKnobState& state) override;
 
         void init(DemoConfigChangeCallback cb);
-    
+        void setOtaRequestCallback(OtaRequestCallback cb);
+
     private:
         Stream& stream_;
         MotorTask& motor_task_;
         PB_SmartKnobState latest_state_ = {};
         DemoConfigChangeCallback demo_config_change_callback_;
+        OtaRequestCallback ota_request_callback_;
 };

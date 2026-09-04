@@ -10,6 +10,14 @@
 #include <Adafruit_VEML7700.h>
 #endif
 
+#include <ArduinoOTA.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+
+#if SK_BLE
+#include <BLEDevice.h>
+#endif
+
 #include "interface_task.h"
 #include "util.h"
 
@@ -120,13 +128,15 @@ static PB_SmartKnobConfig configs[] = {
 };
 
 InterfaceTask::InterfaceTask(const uint8_t task_core, MotorTask& motor_task, BLETask& ble_task, DisplayTask* display_task) : 
-        Task("Interface", 3000, 1, task_core),
+        Task("Interface", 10240, 1, task_core), // Generous stack: OTA mode runs WiFi + ArduinoOTA + mDNS in this task
         stream_(),
         motor_task_(motor_task),
         ble_task_(ble_task),
         display_task_(display_task),
         plaintext_protocol_(stream_, motor_task_),
-        proto_protocol_(stream_, motor_task_) {
+        proto_protocol_(stream_, motor_task_),
+        tcp_stream_(OTA_CONSOLE_PORT),
+        tcp_protocol_(tcp_stream_, motor_task_) {
     #if SK_DISPLAY
         assert(display_task != nullptr);
     #endif
@@ -170,6 +180,22 @@ void InterfaceTask::run() {
     motor_task_.setConfig(configs[0]);
     motor_task_.addListener(knob_state_queue_);
 
+    preferences_.begin("knob", false);
+    press_actuation_ = preferences_.getFloat("actuation", press_actuation_);
+    snprintf(buf_, sizeof(buf_), "Press actuation point: %.2f", press_actuation_);
+    log(buf_);
+    #if SK_BLE
+        ble_task_.updateActuation(press_actuation_);
+
+        // Report the previous OTA-mode attempt over BLE (survives the reboot via NVS)
+        String last_diag = preferences_.getString("ota_diag", "");
+        if (last_diag.length() > 0) {
+            ble_task_.setDiagText(last_diag.c_str());
+            snprintf(buf_, sizeof(buf_), "Last OTA: %s", last_diag.c_str());
+            log(buf_);
+        }
+    #endif
+
 
     // Start in legacy protocol mode
     plaintext_protocol_.init([this] () {
@@ -194,6 +220,10 @@ void InterfaceTask::run() {
     plaintext_protocol_.setProtocolChangeCallback(protocol_change_callback);
     proto_protocol_.setProtocolChangeCallback(protocol_change_callback);
 
+    plaintext_protocol_.setOtaRequestCallback([this] () {
+        ota_requested_ = true;
+    });
+
     // Interface loop:
     while (1) {
         PB_SmartKnobState state;
@@ -202,6 +232,10 @@ void InterfaceTask::run() {
         }
 
         current_protocol->loop();
+
+        if (ota_requested_) {
+            runOtaMode(); // Does not return; ends in ESP.restart()
+        }
 
         std::string* log_string;
         while (xQueueReceive(log_queue_, &log_string, 0) == pdTRUE) {
@@ -269,6 +303,13 @@ void InterfaceTask::updateHardware() {
 
     
     #if SK_BLE
+        if(ble_task_.otaRequested()){
+            ota_requested_ = true;
+        }
+        if(ble_task_.calibrateRequested()){
+            log("Starting motor calibration from BT");
+            motor_task_.runCalibration();
+        }
         if(ble_task_.hasInputFromBT()){
             if(ble_task_.hasNewMotorProfile()){
                 PB_SmartKnobConfig profile = ble_task_.getMotorProfile();
@@ -280,11 +321,20 @@ void InterfaceTask::updateHardware() {
             }
             if(ble_task_.hasNewMotorConfig()){
                 MotorConfig config = ble_task_.getMotorConfig();
-                
+
                 char buf_[256];
                 snprintf(buf_, sizeof(buf_), "Changing config from BT");
                 log(buf_);
                 motor_task_.setMotorConfig(config);
+            }
+            if(ble_task_.hasNewActuationPoint()){
+                press_actuation_ = ble_task_.getActuationPoint();
+                preferences_.putFloat("actuation", press_actuation_);
+                ble_task_.updateActuation(press_actuation_);
+
+                char buf_[256];
+                snprintf(buf_, sizeof(buf_), "Actuation point set from BT: %.2f", press_actuation_);
+                log(buf_);
             }
         }
     #endif
@@ -308,14 +358,15 @@ void InterfaceTask::updateHardware() {
             if (reading >= lower - (upper - lower) && reading < upper + (upper - lower)*2) {
                 long value = CLAMP(reading, lower, upper);
                 press_value_unit = 1. * (value - lower) / (upper - lower);
+                ble_task_.updatePressure(press_value_unit);
 
                 static bool pressed;
-                if (!pressed && press_value_unit > 0.75) {
+                if (!pressed && press_value_unit > press_actuation_) {
                     motor_task_.playHaptic(true);
                     ble_task_.updateScale(true);
                     pressed = true;
                     // changeConfig(true);
-                } else if (pressed && press_value_unit < 0.25) {
+                } else if (pressed && press_value_unit < press_actuation_ / 3) {
                     motor_task_.playHaptic(false);
                     ble_task_.updateScale(false);
                     pressed = false;
@@ -354,4 +405,213 @@ void InterfaceTask::updateHardware() {
         }
         FastLED.show();
     #endif
+}
+
+#if SK_LEDS
+static void setAllLeds(const CRGB& color) {
+    for (uint8_t i = 0; i < NUM_LEDS; i++) {
+        leds[i] = color;
+    }
+    FastLED.show();
+}
+#endif
+
+void InterfaceTask::otaDiagAppend(const char* fmt, ...) {
+    size_t len = strlen(ota_diag_);
+    if (len >= sizeof(ota_diag_) - 2) return;
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(ota_diag_ + len, sizeof(ota_diag_) - len, fmt, args);
+    va_end(args);
+}
+
+// Tears down BLE, brings up WiFi + ArduinoOTA + a TCP console (plaintext protocol
+// on OTA_CONSOLE_PORT). Motor task keeps running, so the console stays interactive
+// ('C' calibrate, <Space> config change). Never returns: exits via ESP.restart(),
+// which boots back into normal BLE mode since nothing here is persisted.
+//
+// LED feedback: blue = scanning/joining WiFi, cyan = ready to flash,
+// green fill = flash progress, magenta blinks = WiFi failed (reboots to normal).
+// A compact diagnostic of the attempt is saved to NVS and reported over BLE
+// after reboot (shows as "Last OTA" in the web app).
+void InterfaceTask::runOtaMode() {
+    ota_requested_ = false;
+    ota_diag_[0] = 0;
+    stream_.println("OTA MODE: starting");
+
+    #if SK_BLE
+        // Stop the BLE task before tearing down the stack it uses
+        vTaskSuspend(ble_task_.getHandle());
+        delay(50);
+        BLEDevice::deinit(false);
+        stream_.println("OTA MODE: BLE stopped");
+    #endif
+
+    #if SK_LEDS
+        setAllLeds(CRGB::Blue);
+    #endif
+
+    WiFi.mode(WIFI_STA);
+    WiFi.setHostname(OTA_HOSTNAME);
+    // EE regulatory domain (channels 1-13) and no power save: Nest WiFi Pro's 2.4GHz
+    // radio may sit on ch 12/13, which the default country config scans poorly.
+    wifi_country_t country = {"EE", 1, 13, 78, WIFI_COUNTRY_POLICY_MANUAL};
+    esp_wifi_set_country(&country);
+    esp_wifi_set_ps(WIFI_PS_NONE);
+
+    // Tri-band mesh APs (WPA3 transition + band steering) are flaky with this old
+    // WiFi stack: scan explicitly, pin the join to the strongest 2.4GHz BSSID, retry.
+    bool wifi_connected = false;
+    for (uint8_t attempt = 1; attempt <= 3 && !wifi_connected; attempt++) {
+        // A previous attempt's join may still be in progress; scanning then fails with -2
+        WiFi.disconnect(true);
+        delay(500);
+        snprintf(buf_, sizeof(buf_), "OTA MODE: scanning (attempt %d/3)...", attempt);
+        stream_.println(buf_);
+        int16_t n = WiFi.scanNetworks(false, true);
+        int32_t best_rssi = -127;
+        int32_t channel = 0;
+        uint8_t bssid[6];
+        for (int16_t i = 0; i < n; i++) {
+            snprintf(buf_, sizeof(buf_), "  %s ch%d %ddBm", WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i));
+            stream_.println(buf_);
+            if (WiFi.SSID(i) == WIFI_SSID && WiFi.RSSI(i) > best_rssi) {
+                best_rssi = WiFi.RSSI(i);
+                channel = WiFi.channel(i);
+                memcpy(bssid, WiFi.BSSID(i), 6);
+            }
+        }
+        WiFi.scanDelete();
+
+        if (channel > 0) {
+            snprintf(buf_, sizeof(buf_), "OTA MODE: joining ch%d (%ddBm)", channel, best_rssi);
+            stream_.println(buf_);
+            otaDiagAppend("a%d:ch%d/%ddBm ", attempt, channel, best_rssi);
+            WiFi.begin(WIFI_SSID, WIFI_PASS, channel, bssid);
+        } else {
+            stream_.println("OTA MODE: SSID not in scan, blind join attempt");
+            otaDiagAppend("a%d:no-ap(%d nets) ", attempt, n);
+            WiFi.begin(WIFI_SSID, WIFI_PASS);
+        }
+
+        uint32_t wifi_start = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - wifi_start < OTA_WIFI_CONNECT_TIMEOUT_MS) {
+            delay(100);
+        }
+        wifi_connected = WiFi.status() == WL_CONNECTED;
+        if (!wifi_connected) {
+            otaDiagAppend("tmo ");
+        }
+    }
+    if (!wifi_connected) {
+        stream_.println("OTA MODE: WiFi failed after 3 attempts, rebooting to normal mode");
+        otaDiagAppend("FAIL");
+        preferences_.putString("ota_diag", ota_diag_);
+        #if SK_LEDS
+            for (uint8_t b = 0; b < 3; b++) {
+                setAllLeds(CRGB::Magenta);
+                delay(250);
+                setAllLeds(CRGB::Black);
+                delay(250);
+            }
+        #endif
+        delay(100);
+        ESP.restart();
+    }
+    snprintf(buf_, sizeof(buf_), "OTA MODE: WiFi connected, IP %s", WiFi.localIP().toString().c_str());
+    stream_.println(buf_);
+    otaDiagAppend("OK %s", WiFi.localIP().toString().c_str());
+    preferences_.putString("ota_diag", ota_diag_);
+
+    ArduinoOTA.setHostname(OTA_HOSTNAME);
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+    ArduinoOTA.onStart([this] () {
+        ota_in_progress_ = true;
+        stream_.println("OTA: update starting");
+        otaDiagAppend(" flash-started");
+        preferences_.putString("ota_diag", ota_diag_);
+    });
+    ArduinoOTA.onProgress([this] (unsigned int progress, unsigned int total) {
+        #if SK_LEDS
+            uint8_t lit = total > 0 ? (uint8_t)((uint64_t)progress * NUM_LEDS / total) : 0;
+            for (uint8_t i = 0; i < NUM_LEDS; i++) {
+                leds[i] = i < lit ? CRGB::Green : CRGB::Blue;
+            }
+            FastLED.show();
+        #endif
+    });
+    ArduinoOTA.onEnd([this] () {
+        stream_.println("OTA: done, rebooting");
+    });
+    ArduinoOTA.onError([this] (ota_error_t error) {
+        ota_in_progress_ = false;
+        snprintf(buf_, sizeof(buf_), "OTA: error %u", error);
+        stream_.println(buf_);
+    });
+    ArduinoOTA.begin(); // Also registers mDNS as OTA_HOSTNAME.local
+
+    tcp_stream_.begin();
+    tcp_protocol_.init([this] () {
+        changeConfig(true);
+    });
+    snprintf(buf_, sizeof(buf_), "OTA MODE: ready -- flash via espota, console on tcp port %d", OTA_CONSOLE_PORT);
+    stream_.println(buf_);
+
+    #if SK_LEDS
+        setAllLeds(CRGB::Cyan); // ready to flash
+    #endif
+
+    uint32_t last_activity = millis();
+    while (1) {
+        ArduinoOTA.handle();
+        tcp_stream_.loop();
+
+        PB_SmartKnobState state;
+        if (xQueueReceive(knob_state_queue_, &state, 0) == pdTRUE) {
+            tcp_protocol_.handleState(state);
+        }
+
+        tcp_protocol_.loop();
+
+        std::string* log_string;
+        while (xQueueReceive(log_queue_, &log_string, 0) == pdTRUE) {
+            tcp_protocol_.log(log_string->c_str());
+            plaintext_protocol_.log(log_string->c_str());
+            delete log_string;
+        }
+
+        if (tcp_stream_.hasClient() || ota_in_progress_) {
+            last_activity = millis();
+        }
+        if (millis() - last_activity > OTA_IDLE_TIMEOUT_MS) {
+            stream_.println("OTA MODE: idle timeout, rebooting to normal mode");
+            otaDiagAppend(" idle-tmo");
+            preferences_.putString("ota_diag", ota_diag_);
+            delay(100);
+            ESP.restart();
+        }
+
+        // Heartbeat with stack headroom so a starved task is diagnosable from the console
+        static uint32_t last_heartbeat;
+        if (millis() - last_heartbeat > 10000) {
+            last_heartbeat = millis();
+            snprintf(buf_, sizeof(buf_), "OTA MODE: alive, stack headroom %d bytes", uxTaskGetStackHighWaterMark(NULL));
+            stream_.println(buf_);
+            tcp_protocol_.log(buf_);
+        }
+
+        // Discovery beacon: broadcast our IP so tooling doesn't depend on mDNS
+        // (stale mDNS caches have pointed smartknob.local at the wrong host)
+        static uint32_t last_beacon;
+        if (millis() - last_beacon > 2000) {
+            last_beacon = millis();
+            static WiFiUDP beacon_udp;
+            beacon_udp.beginPacket(IPAddress(255, 255, 255, 255), OTA_BEACON_PORT);
+            beacon_udp.print("SMARTKNOB-OTA ");
+            beacon_udp.print(WiFi.localIP().toString());
+            beacon_udp.endPacket();
+        }
+
+        delay(1);
+    }
 }

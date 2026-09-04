@@ -160,10 +160,23 @@ void BLETask::run() {
             }
 
             subpos = floorf( state.sub_position_unit * 100) / 100;
-            if (trunc(20. * sub_positions) != trunc(20. * subpos)){ 
-            // if (sub_positions != subpos){ 
+            if (trunc(20. * sub_positions) != trunc(20. * subpos)){
+            // if (sub_positions != subpos){
                 sub_positions = subpos;
                 sendNotify(7, sub_positions);
+            }
+
+            // Pressure on the click sensor, quantized to 1% steps
+            if ((uint32_t)(pressure_unit_ * 100) != (uint32_t)(pressure_unit_old_ * 100)){
+                pressure_unit_old_ = pressure_unit_;
+                float pressure_pct = pressure_unit_ * 100;
+                sendNotify(8, pressure_pct);
+            }
+
+            if (actuation_ != actuation_old_){
+                actuation_old_ = actuation_;
+                float actuation_pct = actuation_ * 100;
+                sendNotify(9, actuation_pct);
             }
 
         }
@@ -177,8 +190,13 @@ void BLETask::run() {
         }
         // connecting
         if (deviceConnected && !oldDeviceConnected) {
-            // do stuff here on connecting
             oldDeviceConnected = deviceConnected;
+            // Report the current actuation point so the client's UI can sync.
+            // Wait for the client to subscribe to notifications first.
+            delay(1000);
+            float actuation_pct = actuation_ * 100;
+            sendNotify(9, actuation_pct);
+            sendDiagText();
         }
 
 
@@ -250,6 +268,38 @@ void BLETask::updateLux(float new_lux_value){
     lux_value_ = new_lux_value;
 }
 
+void BLETask::updatePressure(float pressure_unit){
+    pressure_unit_ = pressure_unit;
+}
+
+void BLETask::updateActuation(float actuation_unit){
+    actuation_ = actuation_unit;
+}
+
+void BLETask::setDiagText(const char* text){
+    strncpy(diag_text_, text, sizeof(diag_text_) - 1);
+    diag_text_[sizeof(diag_text_) - 1] = '\0';
+}
+
+// Key 10 carries text in <=19-byte chunks; a bare key byte marks end of message
+void BLETask::sendDiagText(){
+    size_t len = strlen(diag_text_);
+    if (len == 0) return;
+    uint8_t pkt[20];
+    for (size_t off = 0; off < len; off += 19) {
+        size_t chunk = len - off > 19 ? 19 : len - off;
+        pkt[0] = 10;
+        memcpy(pkt + 1, diag_text_ + off, chunk);
+        pTxCharacteristic->setValue(pkt, chunk + 1);
+        pTxCharacteristic->notify();
+        delay(ble_delay);
+    }
+    pkt[0] = 10;
+    pTxCharacteristic->setValue(pkt, 1);
+    pTxCharacteristic->notify();
+    delay(ble_delay);
+}
+
 void BLETask::updateButton(bool new_button_state){
     button_state_ = new_button_state;
 }
@@ -284,6 +334,31 @@ bool BLETask::hasInputFromBT(){
                     return false;
                 }
             }
+            else if (std::strncmp(newInputFromBT, "AP+", 3) == 0) {
+                float value = std::atof(newInputFromBT + 3);
+                if (value >= 0.05f && value <= 1.0f) {
+                    new_actuation_ = value;
+                    hasNewActuation_ = true;
+                    return true;
+                } else {
+                    log("Invalid input AP");
+                    hasNewInputFromBT = false;
+                    hasNewActuation_ = false;
+                    return false;
+                }
+            }
+            else if (std::strncmp(newInputFromBT, "CAL", 3) == 0) {
+                log("Calibration requested from BT");
+                calibrateRequested_ = true;
+                hasNewInputFromBT = false;
+                return false;
+            }
+            else if (std::strncmp(newInputFromBT, "OTA", 3) == 0) {
+                log("OTA mode requested from BT");
+                otaRequested_ = true;
+                hasNewInputFromBT = false;
+                return false;
+            }
             else if (std::strncmp(newInputFromBT, "CM+", 3) == 0) {
 
                 MotorConfig config;
@@ -310,6 +385,25 @@ bool BLETask::hasInputFromBT(){
 }
 bool BLETask::hasNewMotorProfile(){
     return hasNewMotorProfile_;
+}
+bool BLETask::otaRequested(){
+    return otaRequested_;
+}
+// One-shot: clears on read so calibration runs once per request
+bool BLETask::calibrateRequested(){
+    if (calibrateRequested_) {
+        calibrateRequested_ = false;
+        return true;
+    }
+    return false;
+}
+bool BLETask::hasNewActuationPoint(){
+    return hasNewActuation_;
+}
+float BLETask::getActuationPoint(){
+    hasNewActuation_ = false;
+    hasNewInputFromBT = false;
+    return new_actuation_;
 }
 bool BLETask::hasNewMotorConfig(){
     return hasNewMotorConfig_;
